@@ -103,7 +103,7 @@ class Field:
         y_components_2 = coords2[:,1]
         x_component_centers_of_mass = (mass1*x_components_1+mass2*x_components_2)/(x_components_1+x_components_2)
         y_component_centers_of_mass = (mass1*y_components_1+mass2*y_components_2)/(y_components_1+y_components_2)
-        centers_of_mass = np.concatenate((x_component_centers_of_mass,y_component_centers_of_mass),1)
+        # centers_of_mass = np.concatenate((x_component_centers_of_mass,y_component_centers_of_mass),1)
         
         # repeat all velocities p times, 111222333...
         velocity1 = np.repeat(self.velocity,self.population,0)
@@ -120,9 +120,15 @@ class Field:
         y_components_2 = velocity2[:,1]
         x_component_new_velocity = (mass1*x_components_1+mass2*x_components_2)/mass_sums
         y_component_new_velocity = (mass1*y_components_1+mass2*y_components_2)/mass_sums
-        new_velocity = np.concatenate((x_component_new_velocity,y_component_new_velocity),1)
+        # new_velocity = np.concatenate((x_component_new_velocity,y_component_new_velocity),1)
         
         # for each collision, update with new coordinates, mass, and velocity
-        # one mass will be updated, one will be set to zero
+        self.coords[:,0][distances < 0] = x_component_centers_of_mass[distances < 0]
+        self.coords[:,1][distances < 0] = y_component_centers_of_mass[distances < 0]
+        self.mass[distances < 0] = mass_sums[distances < 0]
+        self.velocity[:,0][distances < 0] = x_component_new_velocity[distances < 0]
+        self.velocity[:,1][distances < 0] = y_component_new_velocity[distances < 0]
+        
         # remove one member of the population for every collision, and update self.population accordingly
+        
         
