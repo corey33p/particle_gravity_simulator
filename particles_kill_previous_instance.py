@@ -3,7 +3,7 @@ import win32con
 def get_windows():
     def check(hwnd, param):
         title = win32gui.GetWindowText(hwnd)
-        if 'life_Main' in title and 'Notepad++' not in title:
+        if '~Particles' in title and 'Notepad++' not in title:
             param.append(hwnd)
     wind = []
     win32gui.EnumWindows(check, wind)

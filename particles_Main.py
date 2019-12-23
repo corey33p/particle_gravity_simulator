@@ -1,5 +1,5 @@
-from life_Display import Display
-from life_Board import LifeBoard
+from particles_Display import Display
+from particles_Field import Field
 from tkinter import mainloop
 import os
 import win32gui
@@ -13,14 +13,7 @@ class Parent:
     def __init__(self):
         self.main_queue = Queue()
         self.display  = Display(self)
-        self.board = LifeBoard(self,
-                               int(self.display.width_entry.get()),
-                               int(self.display.height_entry.get()),
-                               float(self.display.life_probability.get()))
-        self.display.update_population_entry()
-        if self.display.grid_check.get(): self.display.create_grid()
-        self.display.update_display2()
-        self.resize_CLI_window()
+        self.field = None
         self.pause = False
         main_queue_thread = threading.Thread(target=lambda: self. main_queue_thread())
         main_queue_thread.daemon = True
