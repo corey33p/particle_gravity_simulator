@@ -40,7 +40,8 @@ class Display:
         self.primary_window = Tk()
         self.open_images()
         self.primary_window.wm_title("Gravity")
-        self.primary_window.geometry('1274x960-1+0')
+        # self.primary_window.geometry('1274x960-1+0')
+        self.primary_window.geometry('1274x960+3281+1112')
         self.primary_window.minsize(width=100, height=30)
         self.primary_window.maxsize(width=self.max_win_size[0], height=self.max_win_size[1])
         
@@ -104,13 +105,15 @@ class Display:
         self.parent.main_queue.queue.clear()
         masses_count = int(self.masses_count.get())
         self.parent.field = Field(self,masses_count)
-        self.parent.main_queue.put(self.play)
+        # self.parent.main_queue.put(self.play)
+        self.play()
     def play(self):
         self.pause = False
         while True:
             if not self.parent.pause:
                 time.sleep(.04)
                 self.parent.field.step()
+                self.parent.field.collisions()
                 self.update_canvas()
     def update_canvas(self):
         population = self.parent.field.population
@@ -119,8 +122,9 @@ class Display:
             location[0]=location[0]*self.canvas_size[0]
             location[1]=location[1]*self.canvas_size[1]
             mass = self.parent.field.mass[i]
-            diameter = mass*40
-            radius = diameter / 2
+            # diameter = mass*40
+            # radius = diameter / 2
+            radius = (.75/3.14159*mass*self.parent.field.density)**(1/3)
             x0=int(location[0]-radius)
             y0=int(location[1]-radius)
             x1=int(location[0]+radius)
