@@ -1,7 +1,7 @@
 import random
 import numpy as np
 
-np.set_printoptions(suppress=True, precision=2, linewidth=140)
+np.set_printoptions(suppress=True, precision=4, linewidth=140)
 
 class Field:
     def __init__(self,parent,population=100):
@@ -12,7 +12,7 @@ class Field:
         self.velocity = np.zeros((self.population,2))
         self.acceleration = np.zeros((self.population,2))
         self.gravitational_constant = .00005
-        self.density = 500
+        self.density = 100000
     def step(self):
         # find product of all masses multiplied by all other masses
         mass_products = self.mass.dot(self.mass.T)
@@ -34,6 +34,7 @@ class Field:
         vector_signs[coordinate_deltas < 0] = vector_signs[coordinate_deltas < 0] * -1
         
         # calculate r
+        # radius here is the distance between two masses
         radius = (coordinate_deltas[:,0]**2 + coordinate_deltas[:,1]**2)**.5
         radius = radius.reshape(self.population**2,1)
         radius = np.repeat(radius,2,1)
@@ -51,7 +52,8 @@ class Field:
         # update coords
         self.coords = self.coords + self.velocity
     def collisions(self):
-        collisions = True
+        if self.population > 1: collisions = False
+        else: collisions = True
         while collisions:
             # repeat all coordinates p times, 111222333...
             coords1 = np.repeat(self.coords,self.population,0)
@@ -61,7 +63,8 @@ class Field:
             coords2 = coords2.reshape(self.population**2,2)
             
             # compute radii
-            radii = (.75/3.14159*self.mass*self.density)**(1/3)
+            # radii here are of each individual mass
+            radii = (3/4 * self.mass / (3.14159 * self.density))**(1/3)
             
             # repeat all radii p times, 111222333...
             radii1 = np.repeat(radii,self.population,0)
@@ -78,21 +81,20 @@ class Field:
             distances = (coordinate_deltas[:,0]**2+coordinate_deltas[:,1]**2)**.5
             distances = distances.reshape((self.population**2,1))
             distances = distances - radius_sums
-            print("distances: " + str(distances))
-            collisions = np.any(distances<0)
             
+            # create a mask for pairs of the same mass
+            mask = np.zeros((self.population+1))
+            mask[0]=1
+            times_to_repeat = int((self.population**2/(self.population+1))//1+1)
+            mask = np.concatenate([[mask]] * times_to_repeat, axis=1).T
+            mask = mask.reshape(mask.shape[0],1)
+            mask = mask[:self.population**2,0]
+            
+            # set the distances between the same masses as 1 so they don't count as collisions
+            distances[mask==1] = 1
+            
+            collisions = np.any(distances<0)
             if collisions:
-                # create a mask for pairs of the same mass
-                mask = np.zeros((self.population+1))
-                mask[0]=1
-                times_to_repeat = int((self.population**2/(self.population+1))//1+1)
-                mask = np.concatenate([[mask]] * times_to_repeat, axis=1).T
-                mask = mask.reshape(mask.shape[0],1)
-                mask = mask[:self.population**2,0]
-                
-                # set the distances between the same masses as 1 so they don't count as collisions
-                distances[mask==1] = 1
-                
                 # repeat all masses p times, 111222333...
                 mass1 = np.repeat(self.mass,self.population,0)
                 
@@ -109,8 +111,8 @@ class Field:
                 y_components_1 = coords1[:,1].reshape(self.population**2,1)
                 x_components_2 = coords2[:,0].reshape(self.population**2,1)
                 y_components_2 = coords2[:,1].reshape(self.population**2,1)
-                x_component_centers_of_mass = (mass1*x_components_1+mass2*x_components_2)/(x_components_1+x_components_2)
-                y_component_centers_of_mass = (mass1*y_components_1+mass2*y_components_2)/(y_components_1+y_components_2)
+                x_component_centers_of_mass = (mass1*x_components_1+mass2*x_components_2)/(mass_sums)
+                y_component_centers_of_mass = (mass1*y_components_1+mass2*y_components_2)/(mass_sums)
                 # centers_of_mass = np.concatenate((x_component_centers_of_mass,y_component_centers_of_mass),1)
                 
                 # repeat all velocities p times, 111222333...
@@ -128,7 +130,6 @@ class Field:
                 y_components_2 = velocity2[:,1].reshape(self.population**2,1)
                 x_component_new_velocity = (mass1*x_components_1+mass2*x_components_2)/mass_sums
                 y_component_new_velocity = (mass1*y_components_1+mass2*y_components_2)/mass_sums
-                # new_velocity = np.concatenate((x_component_new_velocity,y_component_new_velocity),1)
                 
                 # create parent labels, to prevent the same mass being included into multiple collisions
                 numbers = np.arange(self.population).reshape(self.population,1)
@@ -143,7 +144,6 @@ class Field:
                 # parent 1, parent 2, locX, locY, mass, velocityX, velocityY
                 distances_mask = [distances < 0][0].reshape(self.population**2)
                 new_masses = np.zeros((self.population**2,7))
-                print("new_masses:\n" + str(new_masses))
                 new_masses[:,0] = parents1.reshape(self.population**2)
                 new_masses[:,1] = parents2.reshape(self.population**2)
                 new_masses[:,2][distances_mask] = np.squeeze(x_component_centers_of_mass[distances_mask])
@@ -151,23 +151,28 @@ class Field:
                 new_masses[:,4][distances_mask] = np.squeeze(mass_sums[distances_mask])
                 new_masses[:,5][distances_mask] = np.squeeze(x_component_new_velocity[distances_mask])
                 new_masses[:,6][distances_mask] = np.squeeze(y_component_new_velocity[distances_mask])
-                print("new_masses:\n" + str(new_masses))
-                unique_keys, indices = np.unique(new_masses[:,0], return_index=True)
-                print("unique_keys: " + str(unique_keys))
-                print("indices: " + str(indices))
-                new_masses = new_masses[indices]
-                print("new_masses:\n" + str(new_masses))
+                new_masses = new_masses[new_masses[:,4]!=0]
+                indices = np.asarray(list(set(new_masses[:,0])),np.int32)
+                
+                # locX, locY, mass, velocityX, velocityY
+                new_masses = new_masses[:,2:]
+                entries = [list(row) for row in new_masses]
+                new_masses = np.unique(entries,axis=0)
                 
                 # delete the masses that made the collision
                 self.mass[indices] = 0
-                self.mass = self.mass[self.mass[:,0]!=0]
                 self.coords = self.coords[self.mass[:,0]!=0]
                 self.velocity = self.velocity[self.mass[:,0]!=0]
+                self.mass = self.mass[self.mass[:,0]!=0]               
                 
                 # add the new masses to the existing masses
-                self.mass = np.concatenate((self.mass, new_masses[:,4]),axis=0)
-                self.coords = np.concatenate((self.coords, new_masses[:,2:4]),axis=0)
-                self.velocity = np.concatenate((self.velocity, new_masses[:,5:]),axis=0)
+                self.mass = np.concatenate((self.mass, new_masses[:,2].reshape(new_masses[:,2].shape[0],1)),axis=0)
+                self.coords = np.concatenate((self.coords, new_masses[:,:2]),axis=0)
+                self.velocity = np.concatenate((self.velocity, new_masses[:,3:]),axis=0)  
                 
                 # check if the arrays are the same size
                 assert(self.mass.shape[0]==self.coords.shape[0]==self.velocity.shape[0])
+                
+                # and update population count
+                self.population = self.mass.shape[0]
+                

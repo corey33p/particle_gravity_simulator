@@ -14,7 +14,7 @@ class Display:
         self.parent = parent
         self.main_font = ("Courier", 22, "bold")
         self.max_win_size = (1335,950)
-        self.canvas_size = ((self.max_win_size[0]-5,self.max_win_size[1]-70))
+        self.canvas_size = min((self.max_win_size[0]-5,self.max_win_size[1]-70))
         self.im = {}
         self.setup_window()
         self.current_step = "odd"
@@ -40,8 +40,8 @@ class Display:
         self.primary_window = Tk()
         self.open_images()
         self.primary_window.wm_title("Gravity")
-        # self.primary_window.geometry('1274x960-1+0')
-        self.primary_window.geometry('1274x960+3281+1112')
+        self.primary_window.geometry('1274x960-1+0')
+        # self.primary_window.geometry('1274x960+3281+1112')
         self.primary_window.minsize(width=100, height=30)
         self.primary_window.maxsize(width=self.max_win_size[0], height=self.max_win_size[1])
         
@@ -59,8 +59,8 @@ class Display:
         self.canvas_frame.columnconfigure(0, weight=1)
         
         self.the_canvas = Canvas(self.canvas_frame,
-                                width=self.canvas_size[0],
-                                height=self.canvas_size[1],
+                                width=self.canvas_size,
+                                height=self.canvas_size,
                                 background='black')
         self.the_canvas.grid(row=0, column=0,columnspan=2, sticky="ew")
         
@@ -88,16 +88,18 @@ class Display:
         #
         Label(self.bottom_buttons_frame, text=" Masses Count:",font=self.main_font).grid(row=0, column=3)
         self.masses_count = Entry(self.bottom_buttons_frame,justify='right')
-        self.masses_count.insert("end", '3')
+        self.masses_count.insert("end", '23')
         self.masses_count.config(font=self.main_font,width=4)
         self.masses_count.grid(row=0,column=4)
     def step(self):
-        if not self.parent.pause: self.parent.pause = True
-        if self.parent.field is None:
-            masses_count = int(self.masses_count.get())
-            self.parent.field = Field(self,masses_count)
-        self.parent.field.step()
-        self.update_canvas()
+        if self.parent.field.population>1:
+            if not self.parent.pause: self.parent.pause = True
+            if self.parent.field is None:
+                masses_count = int(self.masses_count.get())
+                self.parent.field = Field(self,masses_count)
+            self.parent.field.step()
+            self.parent.field.collisions()
+            self.update_canvas()
     def pause(self):
         self.parent.pause = not self.parent.pause
     def play_func(self):
@@ -105,11 +107,11 @@ class Display:
         self.parent.main_queue.queue.clear()
         masses_count = int(self.masses_count.get())
         self.parent.field = Field(self,masses_count)
-        # self.parent.main_queue.put(self.play)
-        self.play()
+        self.parent.main_queue.put(self.play)
+        # self.play()
     def play(self):
         self.pause = False
-        while True:
+        while self.parent.field.population>1:
             if not self.parent.pause:
                 time.sleep(.04)
                 self.parent.field.step()
@@ -119,12 +121,13 @@ class Display:
         population = self.parent.field.population
         for i in range(population):
             location = np.copy(self.parent.field.coords[i])
-            location[0]=location[0]*self.canvas_size[0]
-            location[1]=location[1]*self.canvas_size[1]
+            location[0]=location[0]*self.canvas_size
+            location[1]=location[1]*self.canvas_size
             mass = self.parent.field.mass[i]
             # diameter = mass*40
             # radius = diameter / 2
-            radius = (.75/3.14159*mass*self.parent.field.density)**(1/3)
+            radius = (3/4 * mass / (3.14159 * self.parent.field.density))**(1/3)
+            radius = radius * self.canvas_size
             x0=int(location[0]-radius)
             y0=int(location[1]-radius)
             x1=int(location[0]+radius)
