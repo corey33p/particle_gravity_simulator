@@ -90,7 +90,7 @@ class Display:
         #
         Label(self.bottom_buttons_frame, text=" Masses Count:",font=self.main_font).grid(row=0, column=3)
         self.masses_count = Entry(self.bottom_buttons_frame,justify='right')
-        self.masses_count.insert("end", '3')
+        self.masses_count.insert("end", '13')
         self.masses_count.config(font=self.main_font,width=4)
         self.masses_count.grid(row=0,column=4)
     def step(self):

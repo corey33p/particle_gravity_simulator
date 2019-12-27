@@ -1,25 +1,27 @@
 import random
 import numpy as np
+import copy
 
 np.set_printoptions(suppress=True, precision=4, linewidth=140)
+np.set_printoptions(threshold=np.inf)
 
 class Field:
     def __init__(self,parent,population=100):
         self.parent = parent
-        # self.population = population
-        self.population = 4
-        # self.coords = np.random.random((self.population,2))
-        self.coords = np.array([[.25,.25],
-                                [.25,.75],
-                                [.75,.25],
-                                [.9,.9]])
-        # self.mass = np.random.random((self.population,1))*10
-        self.mass = np.array([[.1],[5],[5],[5]])
+        self.population = population
+        # self.population = 4
+        self.coords = np.random.random((self.population,2))
+        # self.coords = np.array([[.25,.25],
+                                # [.25,.75],
+                                # [.75,.25],
+                                # [.9,.9]])
+        self.mass = np.random.random((self.population,1))*10
+        # self.mass = np.array([[.1],[5],[5],[5]])
         self.total_mass = float(np.sum(self.mass))
         self.velocity = np.zeros((self.population,2))
         self.acceleration = np.zeros((self.population,2))
-        self.gravitational_constant = .00001
-        self.density = 10000000
+        self.gravitational_constant = .0001
+        self.density = 100000
         self.time_step = 1
         
         # variables to detect an orbit
@@ -28,6 +30,8 @@ class Field:
         self.last_distance = -1
         self.orbit_pattern = []
         self.orbit_threshold = 6 # must be greater than 3
+        
+        self.collisions()
     def step(self):
         # find product of all masses multiplied by all other masses
         mass_products = self.mass.dot(self.mass.T)
@@ -181,21 +185,24 @@ class Field:
                 new_masses[:,4][distances_mask] = np.squeeze(mass_sums[distances_mask])
                 new_masses[:,5][distances_mask] = np.squeeze(x_component_new_velocity[distances_mask])
                 new_masses[:,6][distances_mask] = np.squeeze(y_component_new_velocity[distances_mask])
+                new_masses_bak = copy.deepcopy(new_masses)
                 new_masses = new_masses[new_masses[:,4]!=0]
-                indices = np.asarray(list(set(new_masses[:,0])),np.int32)
                 
                 # make sure same parent doesn't contribute to multiple new masses
+                multi_collision_occurred = False
                 unique_parents = set()
                 for i in range(new_masses.shape[0]):
                     parentA = new_masses[i,0]
                     parentB = new_masses[i,1]
                     if parentA in unique_parents or parentB in unique_parents:
-                        print("tacos")
                         new_masses[i,4]=0
+                        multi_collision_occurred = True
                     else:
                         unique_parents.add(parentA)
                         unique_parents.add(parentB)
                 new_masses = new_masses[new_masses[:,4]!=0]
+                a=new_masses[:,0:2][0]
+                indices = np.asarray(list(set(a)),np.int32)
                 
                 # locX, locY, mass, velocityX, velocityY
                 new_masses = new_masses[:,2:]
@@ -213,8 +220,19 @@ class Field:
                 self.coords = np.concatenate((self.coords, new_masses[:,:2]),axis=0)
                 self.velocity = np.concatenate((self.velocity, new_masses[:,3:]),axis=0)  
                 
-                # check if the arrays are the same size
                 assert(self.mass.shape[0]==self.coords.shape[0]==self.velocity.shape[0])
+                tot_mass = float(np.sum(self.mass))
+                if abs(tot_mass-self.total_mass)>.01:
+                    print("float(np.sum(self.mass)): " + str(float(np.sum(self.mass))))
+                    print("self.total_mass: " + str(self.total_mass))
+                    print("new_masses_bak:\n" + str(new_masses_bak))
+                    print("new_masses:\n" + str(new_masses))
+                assert(abs(tot_mass-self.total_mass)<.01)
                 
                 # and update population count
                 self.population = self.mass.shape[0]
+                
+                # if multi_collision_occurred:
+                    # print("self.mass:\n" + str(self.mass))
+                    # print("self.coords:\n" + str(self.coords))
+                    # print("self.velocity:\n" + str(self.velocity))
