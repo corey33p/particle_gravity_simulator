@@ -6,13 +6,28 @@ np.set_printoptions(suppress=True, precision=4, linewidth=140)
 class Field:
     def __init__(self,parent,population=100):
         self.parent = parent
-        self.population = population
-        self.coords = np.random.random((self.population,2))
-        self.mass = np.random.random((self.population,1))*10
+        # self.population = population
+        self.population = 4
+        # self.coords = np.random.random((self.population,2))
+        self.coords = np.array([[.25,.25],
+                                [.25,.75],
+                                [.75,.25],
+                                [.9,.9]])
+        # self.mass = np.random.random((self.population,1))*10
+        self.mass = np.array([[.1],[5],[5],[5]])
+        self.total_mass = float(np.sum(self.mass))
         self.velocity = np.zeros((self.population,2))
         self.acceleration = np.zeros((self.population,2))
-        self.gravitational_constant = .00005
-        self.density = 100000
+        self.gravitational_constant = .00001
+        self.density = 10000000
+        self.time_step = 1
+        
+        # variables to detect an orbit
+        self.orbitting = False
+        self.decreasing = False
+        self.last_distance = -1
+        self.orbit_pattern = []
+        self.orbit_threshold = 6 # must be greater than 3
     def step(self):
         # find product of all masses multiplied by all other masses
         mass_products = self.mass.dot(self.mass.T)
@@ -39,6 +54,21 @@ class Field:
         radius = radius.reshape(self.population**2,1)
         radius = np.repeat(radius,2,1)
         
+        # if there are 2 masses, check if they are orbitting
+        if self.population == 2 and not self.orbitting:
+            if self.last_distance == -1: self.last_distance = radius[1,0]
+            else:
+                if self.decreasing:
+                    if radius[1,0] > self.last_distance:
+                        self.orbit_pattern.append("increasing")
+                        self.decreasing = False
+                else:
+                    if radius[1,0] < self.last_distance:
+                        self.orbit_pattern.append("decreasing")
+                        self.decreasing = True
+            if len(self.orbit_pattern) >= self.orbit_threshold:
+                self.orbitting = True
+        
         # find acceleration G*m1*m2/r for x and y components for each particle
         acceleration = np.zeros((self.population**2,2))
         acceleration[coordinate_deltas!=0] = self.gravitational_constant * mass_products[coordinate_deltas!=0] * 1/(radius[coordinate_deltas!=0])
@@ -47,13 +77,13 @@ class Field:
         self.acceleration = np.mean(acceleration,0)*self.population/(self.population-1)
         
         # update velocity 
-        self.velocity = self.velocity + self.acceleration
+        self.velocity = self.velocity + self.acceleration * self.time_step
         
         # update coords
-        self.coords = self.coords + self.velocity
+        self.coords = self.coords + self.velocity * self.time_step
     def collisions(self):
-        if self.population > 1: collisions = False
-        else: collisions = True
+        if self.population > 1: collisions = True
+        else: collisions = False
         while collisions:
             # repeat all coordinates p times, 111222333...
             coords1 = np.repeat(self.coords,self.population,0)
@@ -154,6 +184,19 @@ class Field:
                 new_masses = new_masses[new_masses[:,4]!=0]
                 indices = np.asarray(list(set(new_masses[:,0])),np.int32)
                 
+                # make sure same parent doesn't contribute to multiple new masses
+                unique_parents = set()
+                for i in range(new_masses.shape[0]):
+                    parentA = new_masses[i,0]
+                    parentB = new_masses[i,1]
+                    if parentA in unique_parents or parentB in unique_parents:
+                        print("tacos")
+                        new_masses[i,4]=0
+                    else:
+                        unique_parents.add(parentA)
+                        unique_parents.add(parentB)
+                new_masses = new_masses[new_masses[:,4]!=0]
+                
                 # locX, locY, mass, velocityX, velocityY
                 new_masses = new_masses[:,2:]
                 entries = [list(row) for row in new_masses]
@@ -175,4 +218,3 @@ class Field:
                 
                 # and update population count
                 self.population = self.mass.shape[0]
-                

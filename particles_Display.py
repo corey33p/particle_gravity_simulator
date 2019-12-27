@@ -40,8 +40,8 @@ class Display:
         self.primary_window = Tk()
         self.open_images()
         self.primary_window.wm_title("Gravity")
-        self.primary_window.geometry('1274x960-1+0')
-        # self.primary_window.geometry('1274x960+3281+1112')
+        # self.primary_window.geometry('1274x960-1+0')
+        self.primary_window.geometry('1274x960+3281+1112')
         self.primary_window.minsize(width=100, height=30)
         self.primary_window.maxsize(width=self.max_win_size[0], height=self.max_win_size[1])
         
@@ -55,7 +55,7 @@ class Display:
         self.primary_window.rowconfigure(0, weight=1)
         
         self.canvas_frame = ttk.Frame(self.primary_window)
-        self.canvas_frame.grid(row=0, column=0, sticky="nsew")
+        self.canvas_frame.grid(row=0, column=0)
         self.canvas_frame.columnconfigure(0, weight=1)
         
         self.the_canvas = Canvas(self.canvas_frame,
@@ -63,6 +63,8 @@ class Display:
                                 height=self.canvas_size,
                                 background='black')
         self.the_canvas.grid(row=0, column=0,columnspan=2, sticky="ew")
+        self.the_canvas.create_line(0,self.canvas_size/2,self.canvas_size,self.canvas_size/2,fill='#333333')
+        self.the_canvas.create_line(self.canvas_size/2,0,self.canvas_size/2,self.canvas_size,fill='#333333')
         
         # bottom buttons
         self.bottom_buttons_frame = ttk.Frame(self.primary_window)
@@ -88,7 +90,7 @@ class Display:
         #
         Label(self.bottom_buttons_frame, text=" Masses Count:",font=self.main_font).grid(row=0, column=3)
         self.masses_count = Entry(self.bottom_buttons_frame,justify='right')
-        self.masses_count.insert("end", '23')
+        self.masses_count.insert("end", '3')
         self.masses_count.config(font=self.main_font,width=4)
         self.masses_count.grid(row=0,column=4)
     def step(self):
@@ -113,19 +115,31 @@ class Display:
         self.pause = False
         while self.parent.field.population>1:
             if not self.parent.pause:
-                time.sleep(.04)
+                time.sleep(.02)
                 self.parent.field.step()
                 self.parent.field.collisions()
                 self.update_canvas()
+                if self.parent.field.population == 1 or self.parent.field.orbitting:
+                    masses_count = int(self.masses_count.get())
+                    self.parent.field = Field(self,masses_count)
     def update_canvas(self):
         population = self.parent.field.population
+        x_center_of_mass = float(np.sum(self.parent.field.coords[:,0]*self.parent.field.mass.flatten()))/self.parent.field.total_mass
+        y_center_of_mass = float(np.sum(self.parent.field.coords[:,1]*self.parent.field.mass.flatten()))/self.parent.field.total_mass
+        # print("self.parent.field.coords[:,0]*self.parent.field.mass.flatten():\n" + str(self.parent.field.coords[:,0]*self.parent.field.mass.flatten()))
+        # print("self.parent.field.coords:\n" + str(self.parent.field.coords))
+        # print("self.parent.field.mass:\n" + str(self.parent.field.mass))
+        # print("self.parent.field.total_mass:\n" + str(self.parent.field.total_mass))
+        # print("x_center_of_mass: " + str(x_center_of_mass))
+        # input("y_center_of_mass: " + str(y_center_of_mass))
+        x_offset = .5-x_center_of_mass
+        y_offset = .5-y_center_of_mass
+        self.the_canvas.delete(self.current_step)
         for i in range(population):
             location = np.copy(self.parent.field.coords[i])
-            location[0]=location[0]*self.canvas_size
-            location[1]=location[1]*self.canvas_size
+            location[0]=(location[0]+x_offset)*self.canvas_size
+            location[1]=(location[1]+y_offset)*self.canvas_size
             mass = self.parent.field.mass[i]
-            # diameter = mass*40
-            # radius = diameter / 2
             radius = (3/4 * mass / (3.14159 * self.parent.field.density))**(1/3)
             radius = radius * self.canvas_size
             x0=int(location[0]-radius)
