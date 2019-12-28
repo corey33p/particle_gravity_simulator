@@ -14,7 +14,7 @@ class Display:
     def __init__(self, parent):
         self.parent = parent
         self.main_font = ("Courier", 22, "bold")
-        self.max_win_size = (1335,950)
+        self.max_win_size = (1335,1020)
         self.canvas_size = int(.8*880/950*self.max_win_size[1])
         self.im = {}
         self.setup_window()
@@ -41,7 +41,7 @@ class Display:
         self.primary_window = Tk()
         self.open_images()
         self.primary_window.wm_title("Gravity")
-        self.primary_window.geometry('735x989-1+0')
+        self.primary_window.geometry('735x1020-1+0')
         # self.primary_window.geometry('1274x960+3281+1112')
         self.primary_window.minsize(width=100, height=30)
         self.primary_window.maxsize(width=self.max_win_size[0], height=self.max_win_size[1])
@@ -63,8 +63,10 @@ class Display:
                                 height=self.canvas_size,
                                 background='black')
         self.the_canvas.grid(row=0, column=0)
-        self.the_canvas.create_line(0,self.canvas_size/2,self.canvas_size,self.canvas_size/2,fill='#282828')
-        self.the_canvas.create_line(self.canvas_size/2,0,self.canvas_size/2,self.canvas_size,fill='#222222')
+        # self.the_canvas.create_line(0,self.canvas_size/2,self.canvas_size,self.canvas_size/2,fill='#282828')
+        # self.the_canvas.create_line(self.canvas_size/2,0,self.canvas_size/2,self.canvas_size,fill='#222222')
+        self.the_canvas.create_line(.48*self.canvas_size,self.canvas_size/2,.52*self.canvas_size,self.canvas_size/2,fill='#282828')
+        self.the_canvas.create_line(self.canvas_size/2,.48*self.canvas_size,self.canvas_size/2,.52*self.canvas_size,fill='#222222')
         
         # bottom buttons
         self.bottom_buttons_frame = ttk.Frame(self.primary_window)
@@ -90,7 +92,7 @@ class Display:
         #
         Label(self.bottom_buttons_frame, text=" Remaining Masses:",font=self.main_font).grid(row=0, column=3)
         self.current_count = Entry(self.bottom_buttons_frame,justify='right')
-        self.current_count.insert("end", '13')
+        self.current_count.insert("end", '--')
         self.current_count.config(state="disabled",font=self.main_font,width=4)
         self.current_count.grid(row=0,column=4)
         
@@ -106,13 +108,13 @@ class Display:
         #
         Label(self.settings_frame, text="Gravitational Constant:",font=self.main_font).grid(row=1, column=1)
         self.gravitational_constant = Entry(self.settings_frame,justify='right')
-        self.gravitational_constant.insert("end", '.0001')
+        self.gravitational_constant.insert("end", '.001')
         self.gravitational_constant.config(font=self.main_font,width=7)
         self.gravitational_constant.grid(row=1,column=2)
         #
         Label(self.settings_frame, text="Density:",font=self.main_font).grid(row=2, column=1)
         self.density = Entry(self.settings_frame,justify='right')
-        self.density.insert("end", '99999999')
+        self.density.insert("end", '9999999')
         self.density.config(font=self.main_font,width=12)
         self.density.grid(row=2,column=2)
         #
@@ -127,10 +129,16 @@ class Display:
         self.velocity_sigma.insert("end", '.02')
         self.velocity_sigma.config(font=self.main_font,width=5)
         self.velocity_sigma.grid(row=4,column=2)
+        #
+        self.auto_restart_check = IntVar()
+        self.auto_restart_check.set(1)
+        self.auto_restart_button = Checkbutton(self.settings_frame, text="Auto Restart When Orbitting", variable=self.auto_restart_check,font=self.main_font)
+        self.auto_restart_button.grid(row=5,column=1,columnspan=2)
     def update_count(self,count=None):
-        if self.parent.field is not None:
             if count is not None: val = str(count)
-            else: val = str(self.parent.field.population)
+            elif self.parent.field is not None: 
+                val = str(self.parent.field.population)
+            else: return
             self.current_count.config(state="normal")
             self.current_count.delete(0,'end')
             self.current_count.insert('end',val)
@@ -160,10 +168,6 @@ class Display:
         vel_sigma = float(self.velocity_sigma.get())
         return pop,g,density,time_step,vel_sigma
     def play_func(self):
-        w=self.the_canvas.winfo_width() 
-        h=self.the_canvas.winfo_height()
-        print("w: " + str(w))
-        print("h: " + str(h))
         self.parent.pause = False
         self.parent.main_queue.queue.clear()
         count,g,d,t,vs=self.get_settings()
@@ -184,7 +188,8 @@ class Display:
                 self.parent.field.step()
                 self.parent.field.collisions()
                 self.update_canvas()
-                if self.parent.field.population == 1 or self.parent.field.orbitting:
+                restart = self.parent.field.population == 1 or self.parent.field.orbitting and self.auto_restart_check.get()
+                if self.parent.field.population == 1 or restart:
                     count,g,d,t,vs=self.get_settings()
                     self.update_count(count)
                     self.parent.field = Field(self.parent,
@@ -197,12 +202,6 @@ class Display:
         population = self.parent.field.population
         x_center_of_mass = float(np.sum(self.parent.field.coords[:,0]*self.parent.field.mass.flatten()))/self.parent.field.total_mass
         y_center_of_mass = float(np.sum(self.parent.field.coords[:,1]*self.parent.field.mass.flatten()))/self.parent.field.total_mass
-        # print("self.parent.field.coords[:,0]*self.parent.field.mass.flatten():\n" + str(self.parent.field.coords[:,0]*self.parent.field.mass.flatten()))
-        # print("self.parent.field.coords:\n" + str(self.parent.field.coords))
-        # print("self.parent.field.mass:\n" + str(self.parent.field.mass))
-        # print("self.parent.field.total_mass:\n" + str(self.parent.field.total_mass))
-        # print("x_center_of_mass: " + str(x_center_of_mass))
-        # input("y_center_of_mass: " + str(y_center_of_mass))
         x_offset = .5-x_center_of_mass
         y_offset = .5-y_center_of_mass
         self.the_canvas.delete(self.current_step)

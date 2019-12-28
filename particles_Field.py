@@ -29,9 +29,12 @@ class Field:
         self.last_distance = -1
         self.orbit_pattern = []
         self.orbit_threshold = 9 # must be greater than 3
+        self.step_number = 0
+        self.step_at_last_collision = None
         
         self.collisions()
     def step(self):
+        self.step_number += 1
         # find product of all masses multiplied by all other masses
         mass_products = self.mass.dot(self.mass.T)
         mass_products = mass_products.reshape(self.population**2,1)
@@ -71,6 +74,12 @@ class Field:
                         self.decreasing = True
             if len(self.orbit_pattern) >= self.orbit_threshold:
                 self.orbitting = True
+        
+        # in general, try to detect a boring state
+        if self.step_at_last_collision is not None:
+            if self.step_number > 4*self.step_at_last_collision:
+                if self.population < 8:
+                    self.orbitting = True
         
         # find acceleration G*m1*m2/r for x and y components for each particle
         acceleration = np.zeros((self.population**2,2))
@@ -128,6 +137,7 @@ class Field:
             
             collisions = np.any(distances<0)
             if collisions:
+                self.step_at_last_collision = self.step_number
                 # repeat all masses p times, 111222333...
                 mass1 = np.repeat(self.mass,self.population,0)
                 
