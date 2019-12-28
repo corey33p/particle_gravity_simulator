@@ -6,30 +6,29 @@ np.set_printoptions(suppress=True, precision=4, linewidth=140)
 np.set_printoptions(threshold=np.inf)
 
 class Field:
-    def __init__(self,parent,population=100):
+    def __init__(self,parent,
+                      population=100,
+                      gravitational_constant=.0001,
+                      density=100000000,
+                      time_step=.05,
+                      velocity_std=0):
         self.parent = parent
         self.population = population
-        # self.population = 4
+        self.gravitational_constant = gravitational_constant
+        self.density = density
+        self.time_step = time_step
         self.coords = np.random.random((self.population,2))
-        # self.coords = np.array([[.25,.25],
-                                # [.25,.75],
-                                # [.75,.25],
-                                # [.9,.9]])
         self.mass = np.random.random((self.population,1))*10
-        # self.mass = np.array([[.1],[5],[5],[5]])
         self.total_mass = float(np.sum(self.mass))
-        self.velocity = np.zeros((self.population,2))
+        self.velocity = np.random.normal(0,velocity_std,(self.population,2))
         self.acceleration = np.zeros((self.population,2))
-        self.gravitational_constant = .0001
-        self.density = 100000
-        self.time_step = 1
         
         # variables to detect an orbit
         self.orbitting = False
         self.decreasing = False
         self.last_distance = -1
         self.orbit_pattern = []
-        self.orbit_threshold = 6 # must be greater than 3
+        self.orbit_threshold = 9 # must be greater than 3
         
         self.collisions()
     def step(self):
@@ -173,7 +172,6 @@ class Field:
                 parents2 = np.concatenate([[numbers]] * self.population, axis=0)
                 parents2 = parents2.reshape(self.population**2,1)
                 
-                
                 # objects after collision
                 # parent 1, parent 2, locX, locY, mass, velocityX, velocityY
                 distances_mask = [distances < 0][0].reshape(self.population**2)
@@ -201,8 +199,9 @@ class Field:
                         unique_parents.add(parentA)
                         unique_parents.add(parentB)
                 new_masses = new_masses[new_masses[:,4]!=0]
-                a=new_masses[:,0:2][0]
-                indices = np.asarray(list(set(a)),np.int32)
+                a=new_masses[:,0:2]
+                # b=np.flatten(a)
+                indices = np.unique(a).astype(np.int32)
                 
                 # locX, locY, mass, velocityX, velocityY
                 new_masses = new_masses[:,2:]
@@ -225,8 +224,13 @@ class Field:
                 if abs(tot_mass-self.total_mass)>.01:
                     print("float(np.sum(self.mass)): " + str(float(np.sum(self.mass))))
                     print("self.total_mass: " + str(self.total_mass))
+                    print("a:\n" + str(a))
+                    print("indices:\n" + str(indices))
                     print("new_masses_bak:\n" + str(new_masses_bak))
                     print("new_masses:\n" + str(new_masses))
+                    print("self.mass:\n" + str(self.mass))
+                    print("self.coords:\n" + str(self.coords))
+                    print("self.velocity:\n" + str(self.velocity))
                 assert(abs(tot_mass-self.total_mass)<.01)
                 
                 # and update population count
@@ -236,3 +240,5 @@ class Field:
                     # print("self.mass:\n" + str(self.mass))
                     # print("self.coords:\n" + str(self.coords))
                     # print("self.velocity:\n" + str(self.velocity))
+                
+                self.parent.display.update_count()

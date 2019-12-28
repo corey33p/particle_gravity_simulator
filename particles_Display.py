@@ -8,13 +8,14 @@ from tkinter import filedialog
 import math
 import random
 import time
+from Vertical_Scroll import *
 
 class Display:
     def __init__(self, parent):
         self.parent = parent
         self.main_font = ("Courier", 22, "bold")
         self.max_win_size = (1335,950)
-        self.canvas_size = min((self.max_win_size[0]-5,self.max_win_size[1]-70))
+        self.canvas_size = int(.8*880/950*self.max_win_size[1])
         self.im = {}
         self.setup_window()
         self.current_step = "odd"
@@ -40,15 +41,15 @@ class Display:
         self.primary_window = Tk()
         self.open_images()
         self.primary_window.wm_title("Gravity")
-        # self.primary_window.geometry('1274x960-1+0')
-        self.primary_window.geometry('1274x960+3281+1112')
+        self.primary_window.geometry('735x989-1+0')
+        # self.primary_window.geometry('1274x960+3281+1112')
         self.primary_window.minsize(width=100, height=30)
         self.primary_window.maxsize(width=self.max_win_size[0], height=self.max_win_size[1])
         
         # image & canvas
         
         self.im_frame = ttk.Frame(self.primary_window)
-        self.im_frame.grid(row=0,column=0,columnspan=2,sticky="nsew")
+        self.im_frame.grid(row=0,column=0,sticky="nsew")
         self.im_frame.columnconfigure(0, weight=1)
         self.im_frame.rowconfigure(0, weight=1)
         self.primary_window.columnconfigure(0, weight=1)
@@ -56,19 +57,18 @@ class Display:
         
         self.canvas_frame = ttk.Frame(self.primary_window)
         self.canvas_frame.grid(row=0, column=0)
-        self.canvas_frame.columnconfigure(0, weight=1)
         
         self.the_canvas = Canvas(self.canvas_frame,
                                 width=self.canvas_size,
                                 height=self.canvas_size,
                                 background='black')
-        self.the_canvas.grid(row=0, column=0,columnspan=2, sticky="ew")
-        self.the_canvas.create_line(0,self.canvas_size/2,self.canvas_size,self.canvas_size/2,fill='#333333')
-        self.the_canvas.create_line(self.canvas_size/2,0,self.canvas_size/2,self.canvas_size,fill='#333333')
+        self.the_canvas.grid(row=0, column=0)
+        self.the_canvas.create_line(0,self.canvas_size/2,self.canvas_size,self.canvas_size/2,fill='#282828')
+        self.the_canvas.create_line(self.canvas_size/2,0,self.canvas_size/2,self.canvas_size,fill='#222222')
         
         # bottom buttons
         self.bottom_buttons_frame = ttk.Frame(self.primary_window)
-        self.bottom_buttons_frame.grid(row=3,column=0,columnspan=2)
+        self.bottom_buttons_frame.grid(row=3,column=0)
         #
         self.play_button = Button(self.bottom_buttons_frame,
                                     command= self.play_func,
@@ -88,27 +88,92 @@ class Display:
                                     width="80",height="80")
         self.step_button.grid(row=0,column=2)
         #
-        Label(self.bottom_buttons_frame, text=" Masses Count:",font=self.main_font).grid(row=0, column=3)
-        self.masses_count = Entry(self.bottom_buttons_frame,justify='right')
-        self.masses_count.insert("end", '13')
+        Label(self.bottom_buttons_frame, text=" Remaining Masses:",font=self.main_font).grid(row=0, column=3)
+        self.current_count = Entry(self.bottom_buttons_frame,justify='right')
+        self.current_count.insert("end", '13')
+        self.current_count.config(state="disabled",font=self.main_font,width=4)
+        self.current_count.grid(row=0,column=4)
+        
+        # settings frame
+        self.settings_frame = ttk.Frame(self.primary_window)
+        self.settings_frame.grid(row=4,column=0)
+        #
+        Label(self.settings_frame, text="Masses Count:",font=self.main_font).grid(row=0, column=1)
+        self.masses_count = Entry(self.settings_frame,justify='right')
+        self.masses_count.insert("end", '43')
         self.masses_count.config(font=self.main_font,width=4)
-        self.masses_count.grid(row=0,column=4)
+        self.masses_count.grid(row=0,column=2)
+        #
+        Label(self.settings_frame, text="Gravitational Constant:",font=self.main_font).grid(row=1, column=1)
+        self.gravitational_constant = Entry(self.settings_frame,justify='right')
+        self.gravitational_constant.insert("end", '.0001')
+        self.gravitational_constant.config(font=self.main_font,width=7)
+        self.gravitational_constant.grid(row=1,column=2)
+        #
+        Label(self.settings_frame, text="Density:",font=self.main_font).grid(row=2, column=1)
+        self.density = Entry(self.settings_frame,justify='right')
+        self.density.insert("end", '99999999')
+        self.density.config(font=self.main_font,width=12)
+        self.density.grid(row=2,column=2)
+        #
+        Label(self.settings_frame, text="Time Step:",font=self.main_font).grid(row=3, column=1)
+        self.time_step = Entry(self.settings_frame,justify='right')
+        self.time_step.insert("end", '.05')
+        self.time_step.config(font=self.main_font,width=6)
+        self.time_step.grid(row=3,column=2)
+        #
+        Label(self.settings_frame, text="Initial Velocity Stdev:",font=self.main_font).grid(row=4, column=1)
+        self.velocity_sigma = Entry(self.settings_frame,justify='right')
+        self.velocity_sigma.insert("end", '.02')
+        self.velocity_sigma.config(font=self.main_font,width=5)
+        self.velocity_sigma.grid(row=4,column=2)
+    def update_count(self,count=None):
+        if self.parent.field is not None:
+            if count is not None: val = str(count)
+            else: val = str(self.parent.field.population)
+            self.current_count.config(state="normal")
+            self.current_count.delete(0,'end')
+            self.current_count.insert('end',val)
+            self.current_count.config(state='disabled')
     def step(self):
         if self.parent.field.population>1:
             if not self.parent.pause: self.parent.pause = True
             if self.parent.field is None:
-                masses_count = int(self.masses_count.get())
-                self.parent.field = Field(self,masses_count)
+                count,g,d,t,vs=self.get_settings()
+                self.update_count(count)
+                self.parent.field = Field(self.parent,
+                                          population=count,
+                                          gravitational_constant=g,
+                                          density=d,
+                                          time_step=t,
+                                          velocity_std=vs)
             self.parent.field.step()
             self.parent.field.collisions()
             self.update_canvas()
     def pause(self):
         self.parent.pause = not self.parent.pause
+    def get_settings(self):
+        pop = int(self.masses_count.get())
+        g = float(self.gravitational_constant.get())
+        density = float(self.density.get())
+        time_step = float(self.time_step.get())
+        vel_sigma = float(self.velocity_sigma.get())
+        return pop,g,density,time_step,vel_sigma
     def play_func(self):
+        w=self.the_canvas.winfo_width() 
+        h=self.the_canvas.winfo_height()
+        print("w: " + str(w))
+        print("h: " + str(h))
         self.parent.pause = False
         self.parent.main_queue.queue.clear()
-        masses_count = int(self.masses_count.get())
-        self.parent.field = Field(self,masses_count)
+        count,g,d,t,vs=self.get_settings()
+        self.update_count(count)
+        self.parent.field = Field(self.parent,
+                                  population=count,
+                                  gravitational_constant=g,
+                                  density=d,
+                                  time_step=t,
+                                  velocity_std=vs)
         self.parent.main_queue.put(self.play)
         # self.play()
     def play(self):
@@ -120,8 +185,14 @@ class Display:
                 self.parent.field.collisions()
                 self.update_canvas()
                 if self.parent.field.population == 1 or self.parent.field.orbitting:
-                    masses_count = int(self.masses_count.get())
-                    self.parent.field = Field(self,masses_count)
+                    count,g,d,t,vs=self.get_settings()
+                    self.update_count(count)
+                    self.parent.field = Field(self.parent,
+                                              population=count,
+                                              gravitational_constant=g,
+                                              density=d,
+                                              time_step=t,
+                                              velocity_std=vs)
     def update_canvas(self):
         population = self.parent.field.population
         x_center_of_mass = float(np.sum(self.parent.field.coords[:,0]*self.parent.field.mass.flatten()))/self.parent.field.total_mass
