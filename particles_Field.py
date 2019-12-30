@@ -14,12 +14,14 @@ class Field:
                       velocity_std=0):
         self.parent = parent
         self.population = population
+        self.starting_population = population
         self.gravitational_constant = gravitational_constant
         self.density = density
         self.time_step = time_step
         self.coords = np.random.random((self.population,2))
         self.mass = np.random.random((self.population,1))*10
         self.total_mass = float(np.sum(self.mass))
+        self.get_center_of_mass()
         self.velocity = np.random.normal(0,velocity_std,(self.population,2))
         self.acceleration = np.zeros((self.population,2))
         
@@ -33,6 +35,10 @@ class Field:
         self.step_at_last_collision = None
         
         self.collisions()
+    def get_center_of_mass(self):
+        x_center_of_mass = float(np.sum(self.coords[:,0]*self.mass.flatten()))/self.total_mass
+        y_center_of_mass = float(np.sum(self.coords[:,1]*self.mass.flatten()))/self.total_mass
+        self.center_of_mass = x_center_of_mass, y_center_of_mass
     def step(self):
         self.step_number += 1
         # find product of all masses multiplied by all other masses
@@ -77,8 +83,8 @@ class Field:
         
         # in general, try to detect a boring state
         if self.step_at_last_collision is not None:
-            if self.step_number > 4*self.step_at_last_collision:
-                if self.population < 8:
+            if self.step_number > 3*self.step_at_last_collision:
+                if self.population < self.starting_population/2:
                     self.orbitting = True
         
         # find acceleration G*m1*m2/r for x and y components for each particle
@@ -93,6 +99,9 @@ class Field:
         
         # update coords
         self.coords = self.coords + self.velocity * self.time_step
+        
+        # update center of mass
+        self.get_center_of_mass()
     def collisions(self):
         if self.population > 1: collisions = True
         else: collisions = False

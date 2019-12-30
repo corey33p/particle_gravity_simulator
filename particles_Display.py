@@ -1,7 +1,7 @@
 from particles_Field import Field
 from PIL import Image, ImageTk, ImageDraw
 import tkinter as tk
-from tkinter import Canvas,Tk,ttk,Label,Entry,Button,mainloop,Text,Frame,IntVar,Checkbutton
+from tkinter import Canvas,Tk,ttk,Label,Entry,Button,mainloop,Text,Frame,IntVar,Checkbutton,Radiobutton
 import os
 import numpy as np
 from tkinter import filedialog
@@ -14,11 +14,13 @@ class Display:
     def __init__(self, parent):
         self.parent = parent
         self.main_font = ("Courier", 22, "bold")
-        self.max_win_size = (1335,1020)
+        self.max_win_size = (1335,1440)
         self.canvas_size = int(.8*880/950*self.max_win_size[1])
         self.im = {}
         self.setup_window()
         self.current_step = "odd"
+        self.x_offset = self.y_offset = .5
+        self.crosshair_size = .02
     def open_images(self):
         pil_img = Image.open('source/play.gif').resize((80,80), Image.ANTIALIAS)
         self.play_photo=ImageTk.PhotoImage(pil_img)
@@ -41,7 +43,7 @@ class Display:
         self.primary_window = Tk()
         self.open_images()
         self.primary_window.wm_title("Gravity")
-        self.primary_window.geometry('735x1020-1+0')
+        self.primary_window.geometry('1069x1440-1+0')
         # self.primary_window.geometry('1274x960+3281+1112')
         self.primary_window.minsize(width=100, height=30)
         self.primary_window.maxsize(width=self.max_win_size[0], height=self.max_win_size[1])
@@ -63,10 +65,6 @@ class Display:
                                 height=self.canvas_size,
                                 background='black')
         self.the_canvas.grid(row=0, column=0)
-        # self.the_canvas.create_line(0,self.canvas_size/2,self.canvas_size,self.canvas_size/2,fill='#282828')
-        # self.the_canvas.create_line(self.canvas_size/2,0,self.canvas_size/2,self.canvas_size,fill='#222222')
-        self.the_canvas.create_line(.48*self.canvas_size,self.canvas_size/2,.52*self.canvas_size,self.canvas_size/2,fill='#282828')
-        self.the_canvas.create_line(self.canvas_size/2,.48*self.canvas_size,self.canvas_size/2,.52*self.canvas_size,fill='#222222')
         
         # bottom buttons
         self.bottom_buttons_frame = ttk.Frame(self.primary_window)
@@ -134,6 +132,34 @@ class Display:
         self.auto_restart_check.set(1)
         self.auto_restart_button = Checkbutton(self.settings_frame, text="Auto Restart When Orbitting", variable=self.auto_restart_check,font=self.main_font)
         self.auto_restart_button.grid(row=5,column=1,columnspan=2)
+        #
+        #
+        def follow_com_func(): self.view_behavior.set(0)
+        def follow_largest_func(): self.view_behavior.set(1)
+        def remain_static_func(): self.view_behavior.set(2)
+        self.view_behavior = IntVar()
+        self.view_behavior.set(0)
+        self.follow_center_of_mass = Radiobutton(self.settings_frame, 
+                                                 text="Follow Center Of Mass", 
+                                                 variable=self.view_behavior, 
+                                                 value=0, 
+                                                 command=follow_com_func,
+                                                 font=self.main_font)
+        self.follow_center_of_mass.grid(row=6,column=0,columnspan=2)
+        self.follow_largest_mass = Radiobutton(self.settings_frame, 
+                                               text="Follow Largest Mass", 
+                                               variable=self.view_behavior, 
+                                               value=1, 
+                                               command=follow_largest_func,
+                                               font=self.main_font)
+        self.follow_largest_mass.grid(row=7,column=0,columnspan=2)
+        self.remain_static = Radiobutton(self.settings_frame, 
+                                               text="Remain Static", 
+                                               variable=self.view_behavior, 
+                                               value=2, 
+                                               command=remain_static_func,
+                                               font=self.main_font)
+        self.remain_static.grid(row=8,column=0,columnspan=2)
     def update_count(self,count=None):
             if count is not None: val = str(count)
             elif self.parent.field is not None: 
@@ -170,6 +196,7 @@ class Display:
     def play_func(self):
         self.parent.pause = False
         self.parent.main_queue.queue.clear()
+        self.x_offset = self.y_offset = .5
         count,g,d,t,vs=self.get_settings()
         self.update_count(count)
         self.parent.field = Field(self.parent,
@@ -199,16 +226,34 @@ class Display:
                                               time_step=t,
                                               velocity_std=vs)
     def update_canvas(self):
+        def draw_crosshair(x,y):
+            self.the_canvas.delete("crosshair")
+            x1=(x+self.x_offset-self.crosshair_size)*self.canvas_size
+            y1=(y+self.y_offset)*self.canvas_size
+            x2=(x+self.x_offset+self.crosshair_size)*self.canvas_size
+            y2=(y+self.y_offset)*self.canvas_size
+            self.the_canvas.create_line(x1,y1,x2,y2,fill='#333333',tags="crosshair")
+            #
+            x1=(x+self.x_offset)*self.canvas_size
+            y1=(y+self.y_offset-self.crosshair_size)*self.canvas_size
+            x2=(x+self.x_offset)*self.canvas_size
+            y2=(y+self.y_offset+self.crosshair_size)*self.canvas_size
+            self.the_canvas.create_line(x1,y1,x2,y2,fill='#333333',tags="crosshair")
+        x_center_of_mass,y_center_of_mass = self.parent.field.center_of_mass
+        if self.view_behavior.get() == 0:
+            self.x_offset = .5-x_center_of_mass
+            self.y_offset = .5-y_center_of_mass
+        elif self.view_behavior.get() == 1:
+            max_mass = float(np.max(self.parent.field.mass))
+            which_mass = int(np.argwhere(self.parent.field.mass == max_mass)[0][0])
+            self.x_offset = .5-float(self.parent.field.coords[which_mass][0])
+            self.y_offset = .5-float(self.parent.field.coords[which_mass][1])
+        draw_crosshair(x_center_of_mass,y_center_of_mass)
         population = self.parent.field.population
-        x_center_of_mass = float(np.sum(self.parent.field.coords[:,0]*self.parent.field.mass.flatten()))/self.parent.field.total_mass
-        y_center_of_mass = float(np.sum(self.parent.field.coords[:,1]*self.parent.field.mass.flatten()))/self.parent.field.total_mass
-        x_offset = .5-x_center_of_mass
-        y_offset = .5-y_center_of_mass
-        self.the_canvas.delete(self.current_step)
         for i in range(population):
             location = np.copy(self.parent.field.coords[i])
-            location[0]=(location[0]+x_offset)*self.canvas_size
-            location[1]=(location[1]+y_offset)*self.canvas_size
+            location[0]=(location[0]+self.x_offset)*self.canvas_size
+            location[1]=(location[1]+self.y_offset)*self.canvas_size
             mass = self.parent.field.mass[i]
             radius = (3/4 * mass / (3.14159 * self.parent.field.density))**(1/3)
             radius = radius * self.canvas_size
