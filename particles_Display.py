@@ -8,7 +8,6 @@ from tkinter import filedialog
 import math
 import random
 import time
-from Vertical_Scroll import *
 
 class Display:
     def __init__(self, parent):
