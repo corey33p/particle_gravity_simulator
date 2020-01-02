@@ -8,27 +8,29 @@ from tkinter import filedialog
 import math
 import random
 import time
+from Vertical_Scroll import *
 
 class Display:
     def __init__(self, parent):
         self.parent = parent
         self.main_font = ("Courier", 22, "bold")
-        self.max_win_size = (1335,1440)
-        self.canvas_size = int(.8*880/950*self.max_win_size[1])
+        self.max_win_size = (1900,1000)
+        self.canvas_size = 900
         self.im = {}
         self.setup_window()
         self.current_step = "odd"
         self.x_offset = self.y_offset = .5
         self.crosshair_size = .02
+        self.zoom_factor = 1
     def open_images(self):
         pil_img = Image.open('source/play.gif').resize((80,80), Image.ANTIALIAS)
         self.play_photo=ImageTk.PhotoImage(pil_img)
         pil_img = Image.open('source/pause.gif').resize((80,80), Image.ANTIALIAS)
         self.pause_photo=ImageTk.PhotoImage(pil_img)
-        # pil_img = Image.open('source/close.gif').resize((80,80), Image.ANTIALIAS)
-        # self.close_photo=ImageTk.PhotoImage(pil_img)
-        # pil_img = Image.open('source/accept.gif').resize((80,80), Image.ANTIALIAS)
-        # self.accept_photo=ImageTk.PhotoImage(pil_img)
+        pil_img = Image.open('source/zoom_in.gif').resize((80,80), Image.ANTIALIAS)
+        self.zoom_in_photo=ImageTk.PhotoImage(pil_img)
+        pil_img = Image.open('source/zoom_out.gif').resize((80,80), Image.ANTIALIAS)
+        self.zoom_out_photo=ImageTk.PhotoImage(pil_img)
         # pil_img = Image.open('source/refresh.gif').resize((80,80), Image.ANTIALIAS)
         # self.refresh_photo=ImageTk.PhotoImage(pil_img)
         # pil_img = Image.open('source/random.gif').resize((80,80), Image.ANTIALIAS)
@@ -42,22 +44,15 @@ class Display:
         self.primary_window = Tk()
         self.open_images()
         self.primary_window.wm_title("Gravity")
-        self.primary_window.geometry('1069x1440-1+0')
+        self.primary_window.geometry('1900x1000-1+0')
         # self.primary_window.geometry('1274x960+3281+1112')
         self.primary_window.minsize(width=100, height=30)
         self.primary_window.maxsize(width=self.max_win_size[0], height=self.max_win_size[1])
         
-        # image & canvas
-        
-        self.im_frame = ttk.Frame(self.primary_window)
-        self.im_frame.grid(row=0,column=0,sticky="nsew")
-        self.im_frame.columnconfigure(0, weight=1)
-        self.im_frame.rowconfigure(0, weight=1)
-        self.primary_window.columnconfigure(0, weight=1)
-        self.primary_window.rowconfigure(0, weight=1)
+        # canvas
         
         self.canvas_frame = ttk.Frame(self.primary_window)
-        self.canvas_frame.grid(row=0, column=0)
+        self.canvas_frame.grid(row=0, column=1)
         
         self.the_canvas = Canvas(self.canvas_frame,
                                 width=self.canvas_size,
@@ -66,8 +61,8 @@ class Display:
         self.the_canvas.grid(row=0, column=0)
         
         # bottom buttons
-        self.bottom_buttons_frame = ttk.Frame(self.primary_window)
-        self.bottom_buttons_frame.grid(row=3,column=0)
+        self.bottom_buttons_frame = ttk.Frame(self.canvas_frame)
+        self.bottom_buttons_frame.grid(row=2,column=0)
         #
         self.play_button = Button(self.bottom_buttons_frame,
                                     command= self.play_func,
@@ -87,15 +82,27 @@ class Display:
                                     width="80",height="80")
         self.step_button.grid(row=0,column=2)
         #
-        Label(self.bottom_buttons_frame, text=" Remaining Masses:",font=self.main_font).grid(row=0, column=3)
+        self.zoom_in_button = Button(self.bottom_buttons_frame,
+                                    command= self.zoom_in,
+                                    image=self.zoom_in_photo,
+                                    width="80",height="80")
+        self.zoom_in_button.grid(row=0,column=3)
+        #
+        self.zoom_out_button = Button(self.bottom_buttons_frame,
+                                    command= self.zoom_out,
+                                    image=self.zoom_out_photo,
+                                    width="80",height="80")
+        self.zoom_out_button.grid(row=0,column=4)
+        #
+        Label(self.bottom_buttons_frame, text="Remaining Masses:",font=self.main_font).grid(row=0, column=5)
         self.current_count = Entry(self.bottom_buttons_frame,justify='right')
         self.current_count.insert("end", '--')
         self.current_count.config(state="disabled",font=self.main_font,width=4)
-        self.current_count.grid(row=0,column=4)
+        self.current_count.grid(row=0,column=6)
         
         # settings frame
         self.settings_frame = ttk.Frame(self.primary_window)
-        self.settings_frame.grid(row=4,column=0)
+        self.settings_frame.grid(row=0,column=0)
         #
         Label(self.settings_frame, text="Masses Count:",font=self.main_font).grid(row=0, column=1)
         self.masses_count = Entry(self.settings_frame,justify='right')
@@ -105,7 +112,7 @@ class Display:
         #
         Label(self.settings_frame, text="Gravitational Constant:",font=self.main_font).grid(row=1, column=1)
         self.gravitational_constant = Entry(self.settings_frame,justify='right')
-        self.gravitational_constant.insert("end", '.001')
+        self.gravitational_constant.insert("end", '.0001')
         self.gravitational_constant.config(font=self.main_font,width=7)
         self.gravitational_constant.grid(row=1,column=2)
         #
@@ -129,7 +136,10 @@ class Display:
         #
         self.auto_restart_check = IntVar()
         self.auto_restart_check.set(1)
-        self.auto_restart_button = Checkbutton(self.settings_frame, text="Auto Restart When Orbitting", variable=self.auto_restart_check,font=self.main_font)
+        self.auto_restart_button = Checkbutton(self.settings_frame,
+                                               text="Auto Restart When Orbitting",
+                                               variable=self.auto_restart_check,
+                                               font=self.main_font)
         self.auto_restart_button.grid(row=5,column=1,columnspan=2)
         #
         #
@@ -152,13 +162,32 @@ class Display:
                                                command=follow_largest_func,
                                                font=self.main_font)
         self.follow_largest_mass.grid(row=7,column=0,columnspan=2)
-        self.remain_static = Radiobutton(self.settings_frame, 
-                                               text="Remain Static", 
-                                               variable=self.view_behavior, 
-                                               value=2, 
-                                               command=remain_static_func,
+        self.remain_static_frame = ttk.Frame(self.settings_frame)
+        self.remain_static_frame.grid(row=8,column=0,columnspan=2)
+        self.remain_static = Radiobutton(self.remain_static_frame, 
+                                              text="Remain Static", 
+                                              variable=self.view_behavior, 
+                                              value=2, 
+                                              command=remain_static_func,
+                                              font=self.main_font)
+        self.remain_static.grid(row=0,column=0)
+        self.auto_recenter_check = IntVar()
+        self.auto_recenter_check.set(1)
+        self.auto_recenter_checkbutton = Checkbutton(self.remain_static_frame, 
+                                               text="Auto Center When Static", 
+                                               variable=self.auto_recenter_check,
                                                font=self.main_font)
-        self.remain_static.grid(row=8,column=0,columnspan=2)
+        self.auto_recenter_checkbutton.grid(row=0,column=1)
+    def zoom_in(self): 
+        self.zoom_factor = self.zoom_factor*2
+        x_center_of_mass,y_center_of_mass = self.parent.field.center_of_mass
+        self.x_offset = .5/self.zoom_factor-x_center_of_mass
+        self.y_offset = .5/self.zoom_factor-y_center_of_mass
+    def zoom_out(self): 
+        self.zoom_factor = self.zoom_factor/2
+        x_center_of_mass,y_center_of_mass = self.parent.field.center_of_mass
+        self.x_offset = .5/self.zoom_factor-x_center_of_mass
+        self.y_offset = .5/self.zoom_factor-y_center_of_mass
     def update_count(self,count=None):
             if count is not None: val = str(count)
             elif self.parent.field is not None: 
@@ -195,7 +224,6 @@ class Display:
     def play_func(self):
         self.parent.pause = False
         self.parent.main_queue.queue.clear()
-        self.x_offset = self.y_offset = .5
         count,g,d,t,vs=self.get_settings()
         self.update_count(count)
         self.parent.field = Field(self.parent,
@@ -204,6 +232,9 @@ class Display:
                                   density=d,
                                   time_step=t,
                                   velocity_std=vs)
+        x_center_of_mass,y_center_of_mass = self.parent.field.center_of_mass
+        self.x_offset = .5/self.zoom_factor-x_center_of_mass
+        self.y_offset = .5/self.zoom_factor-y_center_of_mass
         self.parent.main_queue.put(self.play)
         # self.play()
     def play(self):
@@ -224,38 +255,50 @@ class Display:
                                               density=d,
                                               time_step=t,
                                               velocity_std=vs)
+                    x_center_of_mass,y_center_of_mass = self.parent.field.center_of_mass
+                    self.x_offset = .5/self.zoom_factor-x_center_of_mass
+                    self.y_offset = .5/self.zoom_factor-y_center_of_mass
     def update_canvas(self):
         def draw_crosshair(x,y):
             self.the_canvas.delete("crosshair")
-            x1=(x+self.x_offset-self.crosshair_size)*self.canvas_size
-            y1=(y+self.y_offset)*self.canvas_size
-            x2=(x+self.x_offset+self.crosshair_size)*self.canvas_size
-            y2=(y+self.y_offset)*self.canvas_size
+            x1=(x+self.x_offset-self.crosshair_size)*self.canvas_size*self.zoom_factor
+            y1=(y+self.y_offset)*self.canvas_size*self.zoom_factor
+            x2=(x+self.x_offset+self.crosshair_size)*self.canvas_size*self.zoom_factor
+            y2=(y+self.y_offset)*self.canvas_size*self.zoom_factor
             self.the_canvas.create_line(x1,y1,x2,y2,fill='#333333',tags="crosshair")
             #
-            x1=(x+self.x_offset)*self.canvas_size
-            y1=(y+self.y_offset-self.crosshair_size)*self.canvas_size
-            x2=(x+self.x_offset)*self.canvas_size
-            y2=(y+self.y_offset+self.crosshair_size)*self.canvas_size
+            x1=(x+self.x_offset)*self.canvas_size*self.zoom_factor
+            y1=(y+self.y_offset-self.crosshair_size)*self.canvas_size*self.zoom_factor
+            x2=(x+self.x_offset)*self.canvas_size*self.zoom_factor
+            y2=(y+self.y_offset+self.crosshair_size)*self.canvas_size*self.zoom_factor
             self.the_canvas.create_line(x1,y1,x2,y2,fill='#333333',tags="crosshair")
         x_center_of_mass,y_center_of_mass = self.parent.field.center_of_mass
         if self.view_behavior.get() == 0:
-            self.x_offset = .5-x_center_of_mass
-            self.y_offset = .5-y_center_of_mass
+            self.x_offset = .5/self.zoom_factor-x_center_of_mass
+            self.y_offset = .5/self.zoom_factor-y_center_of_mass
         elif self.view_behavior.get() == 1:
             max_mass = float(np.max(self.parent.field.mass))
             which_mass = int(np.argwhere(self.parent.field.mass == max_mass)[0][0])
-            self.x_offset = .5-float(self.parent.field.coords[which_mass][0])
-            self.y_offset = .5-float(self.parent.field.coords[which_mass][1])
+            self.x_offset = .5/self.zoom_factor-float(self.parent.field.coords[which_mass][0])
+            self.y_offset = .5/self.zoom_factor-float(self.parent.field.coords[which_mass][1])
+        else:
+            if self.auto_recenter_check.get():
+                x_offset = .5/self.zoom_factor-x_center_of_mass-self.x_offset
+                y_offset = .5/self.zoom_factor-y_center_of_mass-self.y_offset
+                x_is_out = abs(x_offset)>.5/self.zoom_factor
+                y_is_out = abs(y_offset)>.5/self.zoom_factor
+                if x_is_out or y_is_out:
+                    self.x_offset = .5/self.zoom_factor-x_center_of_mass
+                    self.y_offset = .5/self.zoom_factor-y_center_of_mass
         draw_crosshair(x_center_of_mass,y_center_of_mass)
         population = self.parent.field.population
         for i in range(population):
             location = np.copy(self.parent.field.coords[i])
-            location[0]=(location[0]+self.x_offset)*self.canvas_size
-            location[1]=(location[1]+self.y_offset)*self.canvas_size
+            location[0]=(location[0]+self.x_offset)*self.canvas_size*self.zoom_factor
+            location[1]=(location[1]+self.y_offset)*self.canvas_size*self.zoom_factor
             mass = self.parent.field.mass[i]
             radius = (3/4 * mass / (3.14159 * self.parent.field.density))**(1/3)
-            radius = radius * self.canvas_size
+            radius = radius * self.canvas_size * self.zoom_factor
             x0=int(location[0]-radius)
             y0=int(location[1]-radius)
             x1=int(location[0]+radius)

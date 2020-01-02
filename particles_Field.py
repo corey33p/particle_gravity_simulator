@@ -83,13 +83,13 @@ class Field:
         
         # in general, try to detect a boring state
         if self.step_at_last_collision is not None:
-            if self.step_number > 3*self.step_at_last_collision:
+            if self.step_number > 2*self.step_at_last_collision:
                 if self.population < self.starting_population/2:
                     self.orbitting = True
         
         # find acceleration G*m1*m2/r for x and y components for each particle
         acceleration = np.zeros((self.population**2,2))
-        acceleration[coordinate_deltas!=0] = self.gravitational_constant * mass_products[coordinate_deltas!=0] * 1/(radius[coordinate_deltas!=0])
+        acceleration[coordinate_deltas!=0] = self.gravitational_constant * mass_products[coordinate_deltas!=0] * 1/(radius[coordinate_deltas!=0]**2)
         acceleration = acceleration * coordinate_deltas
         acceleration = acceleration.reshape(self.population,self.population,2)
         self.acceleration = np.mean(acceleration,0)*self.population/(self.population-1)
