@@ -14,12 +14,12 @@ class Display:
         self.parent = parent
         self.main_font = ("Courier", 22, "bold")
         self.max_win_size = (1900,1000)
-        self.canvas_size = 900
+        self.canvas_size = (1200,900)
         self.im = {}
         self.setup_window()
         self.current_step = "odd"
-        self.x_offset = self.y_offset = .5
-        self.crosshair_size = .02
+        self.view_center = [0,0]
+        self.crosshair_size = 20
         self.zoom_factor = 1
     def open_images(self):
         pil_img = Image.open('source/play.gif').resize((80,80), Image.ANTIALIAS)
@@ -42,9 +42,10 @@ class Display:
         # initial setup
         self.primary_window = Tk()
         self.open_images()
-        self.primary_window.wm_title("Gravity")
-        self.primary_window.geometry('1900x1000-1+0')
-        # self.primary_window.geometry('1274x960+3281+1112')
+        self.primary_window.wm_title("--Gravity--")
+        # self.primary_window.geometry('1900x1000-1+0')
+        # self.primary_window.geometry('1900x1000-1+0')
+        self.primary_window.geometry('1916x1039+3848+1072')
         self.primary_window.minsize(width=100, height=30)
         self.primary_window.maxsize(width=self.max_win_size[0], height=self.max_win_size[1])
 
@@ -54,8 +55,8 @@ class Display:
         self.canvas_frame.grid(row=0, column=1)
 
         self.the_canvas = Canvas(self.canvas_frame,
-                                width=self.canvas_size,
-                                height=self.canvas_size,
+                                width=self.canvas_size[0],
+                                height=self.canvas_size[1],
                                 background='black')
         self.the_canvas.grid(row=0, column=0)
 
@@ -111,13 +112,13 @@ class Display:
         #
         Label(self.settings_frame, text="Gravitational Constant:",font=self.main_font).grid(row=1, column=1, sticky="e")
         self.gravitational_constant = Entry(self.settings_frame,justify='right')
-        self.gravitational_constant.insert("end", '.0001')
+        self.gravitational_constant.insert("end", '10000')
         self.gravitational_constant.config(font=self.main_font,width=9)
         self.gravitational_constant.grid(row=1,column=2)
         #
         Label(self.settings_frame, text="Density:",font=self.main_font).grid(row=2, column=1, sticky="e")
         self.density = Entry(self.settings_frame,justify='right')
-        self.density.insert("end", '999999')
+        self.density.insert("end", '.0005')
         self.density.config(font=self.main_font,width=9)
         self.density.grid(row=2,column=2)
         #
@@ -133,13 +134,19 @@ class Display:
         self.velocity_sigma.config(font=self.main_font,width=9)
         self.velocity_sigma.grid(row=4,column=2)
         #
+        Label(self.settings_frame, text="Minimum draw size:",font=self.main_font).grid(row=5, column=1, sticky="e")
+        self.min_pixel_size = Entry(self.settings_frame,justify='right')
+        self.min_pixel_size.insert("end", '2')
+        self.min_pixel_size.config(font=self.main_font,width=9)
+        self.min_pixel_size.grid(row=5,column=2)
+        #
         self.auto_restart_check = IntVar()
         self.auto_restart_check.set(1)
         self.auto_restart_button = Checkbutton(self.settings_frame,
                                                text="Auto Restart When Orbitting",
                                                variable=self.auto_restart_check,
                                                font=self.main_font)
-        self.auto_restart_button.grid(row=5,column=1,columnspan=2,sticky="e")
+        self.auto_restart_button.grid(row=6,column=1,columnspan=2,sticky="e")
         #
         #
         def follow_com_func(): self.view_behavior.set(0)
@@ -154,45 +161,45 @@ class Display:
                                                  value=0,
                                                  command=follow_com_func,
                                                  font=self.main_font)
-        self.follow_center_of_mass.grid(row=6,column=1,columnspan=2,sticky="e")
+        self.follow_center_of_mass.grid(row=7,column=1,columnspan=2,sticky="e")
         self.follow_largest_mass = Radiobutton(self.settings_frame,
                                                text="Follow Largest Mass",
                                                variable=self.view_behavior,
                                                value=1,
                                                command=follow_largest_func,
                                                font=self.main_font)
-        self.follow_largest_mass.grid(row=7,column=1,columnspan=2,sticky="e")
+        self.follow_largest_mass.grid(row=8,column=1,columnspan=2,sticky="e")
         self.auto_zoom = Radiobutton(self.settings_frame,
                                      text="Auto Zoom",
                                      variable=self.view_behavior,
                                      value=2,
                                      command=auto_zoom_func,
                                      font=self.main_font)
-        self.auto_zoom.grid(row=8,column=1,columnspan=2,sticky="e")
+        self.auto_zoom.grid(row=9,column=1,columnspan=2,sticky="e")
         self.remain_static = Radiobutton(self.settings_frame,
                                               text="Remain Static",
                                               variable=self.view_behavior,
                                               value=3,
                                               command=remain_static_func,
                                               font=self.main_font)
-        self.remain_static.grid(row=9,column=1,columnspan=2,sticky="e")
+        self.remain_static.grid(row=10,column=1,columnspan=2,sticky="e")
         self.auto_recenter_check = IntVar()
         self.auto_recenter_check.set(1)
         self.auto_recenter_checkbutton = Checkbutton(self.settings_frame,
                                                text="Auto Center When Static",
                                                variable=self.auto_recenter_check,
                                                font=self.main_font)
-        self.auto_recenter_checkbutton.grid(row=10,column=1,columnspan=2,sticky="e")
+        self.auto_recenter_checkbutton.grid(row=11,column=1,columnspan=2,sticky="e")
     def zoom_in(self):
         self.zoom_factor = self.zoom_factor*2
         x_center_of_mass,y_center_of_mass = self.parent.field.center_of_mass
-        self.x_offset = .5/self.zoom_factor-x_center_of_mass
-        self.y_offset = .5/self.zoom_factor-y_center_of_mass
+        self.x_centerOfMass_offset = .5/self.zoom_factor-x_center_of_mass
+        self.y_centerOfMass_offset = .5/self.zoom_factor-y_center_of_mass
     def zoom_out(self):
         self.zoom_factor = self.zoom_factor/2
         x_center_of_mass,y_center_of_mass = self.parent.field.center_of_mass
-        self.x_offset = .5/self.zoom_factor-x_center_of_mass
-        self.y_offset = .5/self.zoom_factor-y_center_of_mass
+        self.x_centerOfMass_offset = .5/self.zoom_factor-x_center_of_mass
+        self.y_centerOfMass_offset = .5/self.zoom_factor-y_center_of_mass
     def update_count(self,count=None):
             if count is not None: val = str(count)
             elif self.parent.field is not None:
@@ -206,14 +213,16 @@ class Display:
         if self.parent.field.population>1:
             if not self.parent.pause: self.parent.pause = True
             if self.parent.field is None:
-                count,g,d,t,vs=self.get_settings()
+                count,g,d,t,vs,dim=self.get_settings()
                 self.update_count(count)
                 self.parent.field = Field(self.parent,
                                           population=count,
                                           gravitational_constant=g,
                                           density=d,
                                           time_step=t,
-                                          velocity_std=vs)
+                                          velocity_std=vs,
+                                          field_dimensions=dim)
+                self.view_center = self.parent.field.center_of_mass
             self.parent.field.step()
             self.parent.field.collisions()
             self.update_canvas()
@@ -225,21 +234,21 @@ class Display:
         density = float(self.density.get())
         time_step = float(self.time_step.get())
         vel_sigma = float(self.velocity_sigma.get())
-        return pop,g,density,time_step,vel_sigma
+        dimensions= self.canvas_size
+        return pop,g,density,time_step,vel_sigma,dimensions
     def play_func(self):
         self.parent.pause = False
         self.parent.main_queue.queue.clear()
-        count,g,d,t,vs=self.get_settings()
+        count,g,d,t,vs,dim=self.get_settings()
         self.update_count(count)
         self.parent.field = Field(self.parent,
                                   population=count,
                                   gravitational_constant=g,
                                   density=d,
                                   time_step=t,
-                                  velocity_std=vs)
-        x_center_of_mass,y_center_of_mass = self.parent.field.center_of_mass
-        self.x_offset = .5/self.zoom_factor-x_center_of_mass
-        self.y_offset = .5/self.zoom_factor-y_center_of_mass
+                                  velocity_std=vs,
+                                  field_dimensions=dim)
+        self.view_center = self.parent.field.center_of_mass
         self.parent.main_queue.put(self.play)
         # self.play()
     def play(self):
@@ -252,64 +261,99 @@ class Display:
                 self.update_canvas()
                 restart = self.parent.field.population == 1 or self.parent.field.orbitting and self.auto_restart_check.get()
                 if self.parent.field.population == 1 or restart:
-                    count,g,d,t,vs=self.get_settings()
+                    count,g,d,t,vs,dim=self.get_settings()
                     self.update_count(count)
                     self.parent.field = Field(self.parent,
                                               population=count,
                                               gravitational_constant=g,
                                               density=d,
                                               time_step=t,
-                                              velocity_std=vs)
-                    x_center_of_mass,y_center_of_mass = self.parent.field.center_of_mass
-                    self.x_offset = .5/self.zoom_factor-x_center_of_mass
-                    self.y_offset = .5/self.zoom_factor-y_center_of_mass
+                                              velocity_std=vs,
+                                              field_dimensions=dim)
+                    self.view_center = self.parent.field.center_of_mass
+    def coordinates_to_pixels(self,x,y):
+        canvas_size_after_zoom_x = self.canvas_size[0]/self.zoom_factor
+        canvas_size_after_zoom_y = self.canvas_size[1]/self.zoom_factor
+        min_x = self.view_center[0] - canvas_size_after_zoom_x/2
+        min_y = self.view_center[1] - canvas_size_after_zoom_y/2
+        x_scalar = (x - min_x ) / canvas_size_after_zoom_x
+        y_scalar = (y - min_y ) / canvas_size_after_zoom_y
+        x_pixel = x_scalar * self.canvas_size[0]
+        y_pixel = y_scalar * self.canvas_size[1]
+        # if self.zoom_factor != 1:
+            # print("\nx: " + str(x))
+            # print("self.zoom_factor: " + str(self.zoom_factor))
+            # print("self.view_center[0]: " + str(self.view_center[0]))
+            # print("self.canvas_size[0]: " + str(self.canvas_size[0]))
+            # print("canvas_size_after_zoom_x: " + str(canvas_size_after_zoom_x))
+            # print("min_x: " + str(min_x))
+            # print("x_scalar: " + str(x_scalar))
+            # input("x_pixel: " + str(x_pixel))
+        return x_pixel,y_pixel
     def update_canvas(self):
-        def draw_crosshair(x,y):
+        def draw_crosshair(x_coordinate,y_coordinate):
             self.the_canvas.delete("crosshair")
-            x1=(x+self.x_offset-self.crosshair_size)*self.canvas_size*self.zoom_factor
-            y1=(y+self.y_offset)*self.canvas_size*self.zoom_factor
-            x2=(x+self.x_offset+self.crosshair_size)*self.canvas_size*self.zoom_factor
-            y2=(y+self.y_offset)*self.canvas_size*self.zoom_factor
+            center_of_cross_coordinates=self.coordinates_to_pixels(x_coordinate,y_coordinate)
+            x1 = center_of_cross_coordinates[0] - self.crosshair_size/2
+            y1 = center_of_cross_coordinates[1]
+            x2 = center_of_cross_coordinates[0] + self.crosshair_size/2
+            y2 = center_of_cross_coordinates[1]
             self.the_canvas.create_line(x1,y1,x2,y2,fill='#333333',tags="crosshair")
+            # dims = (x1,y1,x2,y2)
+            # print("dims: "+str(dims))
             #
-            x1=(x+self.x_offset)*self.canvas_size*self.zoom_factor
-            y1=(y+self.y_offset-self.crosshair_size)*self.canvas_size*self.zoom_factor
-            x2=(x+self.x_offset)*self.canvas_size*self.zoom_factor
-            y2=(y+self.y_offset+self.crosshair_size)*self.canvas_size*self.zoom_factor
+            x1 = center_of_cross_coordinates[0]
+            y1 = center_of_cross_coordinates[1] - self.crosshair_size/2
+            x2 = center_of_cross_coordinates[0]
+            y2 = center_of_cross_coordinates[1] + self.crosshair_size/2
             self.the_canvas.create_line(x1,y1,x2,y2,fill='#333333',tags="crosshair")
+            # dims = (x1,y1,x2,y2)
+            # input("dims: "+str(dims))
         x_center_of_mass,y_center_of_mass = self.parent.field.center_of_mass
-        if self.view_behavior.get() == 0:
-            self.x_offset = .5/self.zoom_factor-x_center_of_mass
-            self.y_offset = .5/self.zoom_factor-y_center_of_mass
-        elif self.view_behavior.get() == 1:
+        if self.view_behavior.get() == 0: # follow center of mass
+            self.view_center = (x_center_of_mass,y_center_of_mass)
+        elif self.view_behavior.get() == 1: # follow largest mass
             max_mass = float(np.max(self.parent.field.mass))
             which_mass = int(np.argwhere(self.parent.field.mass == max_mass)[0][0])
-            self.x_offset = .5/self.zoom_factor-float(self.parent.field.coords[which_mass][0])
-            self.y_offset = .5/self.zoom_factor-float(self.parent.field.coords[which_mass][1])
-        elif self.view_behavior.get() == 2:
-            pass
-        else:
-            if self.auto_recenter_check.get():
-                x_offset = .5/self.zoom_factor-x_center_of_mass-self.x_offset
-                y_offset = .5/self.zoom_factor-y_center_of_mass-self.y_offset
-                x_is_out = abs(x_offset)>.5/self.zoom_factor
-                y_is_out = abs(y_offset)>.5/self.zoom_factor
-                if x_is_out or y_is_out:
-                    self.x_offset = .5/self.zoom_factor-x_center_of_mass
-                    self.y_offset = .5/self.zoom_factor-y_center_of_mass
+            self.view_center = (self.parent.field.coords[which_mass,0],self.parent.field.coords[which_mass,1])
+        elif self.view_behavior.get() == 2: # auto zoom
+            min_x = np.min(self.parent.field.coords[:,0])
+            max_x = np.max(self.parent.field.coords[:,0])
+            
+            delta_x = max_x-min_x
+            min_y = np.min(self.parent.field.coords[:,1])
+            max_y = np.max(self.parent.field.coords[:,1])
+            delta_y = max_y-min_y
+            self.view_center = (min_x+max_x)/2,(min_y+max_y)/2
+            
+            if self.parent.field.population > 1:
+                zoom_factor_x = self.canvas_size[0]/delta_x
+                zoom_factor_y = self.canvas_size[1]/delta_y
+                self.zoom_factor = min(zoom_factor_x,zoom_factor_y)
+            else:
+                mass = self.parent.field.mass[0]
+                radius = (3/4 * mass / (3.14159 * self.parent.field.density))**(1/3)
+                zoom_factor = 2*radius
+        else: # remain static
+            if self.auto_recenter_check.get(): # nothing to do unless the view needs recentered
+                COM_pixel_location = self.coordinates_to_pixels(x_center_of_mass,y_center_of_mass)
+                COM_x,COM_y = COM_pixel_location
+                if COM_x < 0 or COM_y < 0 or COM_y > self.canvas_size[1] or COM_y > self.canvas_size[0]:
+                    self.view_center = (x_center_of_mass,y_center_of_mass)
         draw_crosshair(x_center_of_mass,y_center_of_mass)
         population = self.parent.field.population
         for i in range(population):
-            location = np.copy(self.parent.field.coords[i])
-            location[0]=(location[0]+self.x_offset)*self.canvas_size*self.zoom_factor
-            location[1]=(location[1]+self.y_offset)*self.canvas_size*self.zoom_factor
+            coordinate_location = np.copy(self.parent.field.coords[i])
+            pixel_location = self.coordinates_to_pixels(coordinate_location[0],coordinate_location[1])
             mass = self.parent.field.mass[i]
             radius = (3/4 * mass / (3.14159 * self.parent.field.density))**(1/3)
-            radius = radius * self.canvas_size * self.zoom_factor
-            x0=int(location[0]-radius)
-            y0=int(location[1]-radius)
-            x1=int(location[0]+radius)
-            y1=int(location[1]+radius)
+            radius = max(radius*self.zoom_factor,float(self.min_pixel_size.get()))
+            
+            x0=int(pixel_location[0]-radius)
+            y0=int(pixel_location[1]-radius)
+            x1=int(pixel_location[0]+radius)
+            y1=int(pixel_location[1]+radius)
+            oval_coordinates = (x0,y0,x1,y1)
             self.the_canvas.create_oval(x0,y0,x1,y1,fill='white',outline='white',tags=self.current_step)
         if self.current_step == "odd": self.current_step = "even"
         else: self.current_step = "odd"

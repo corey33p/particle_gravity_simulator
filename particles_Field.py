@@ -8,17 +8,21 @@ np.set_printoptions(threshold=np.inf)
 class Field:
     def __init__(self,parent,
                       population=100,
-                      gravitational_constant=.0001,
-                      density=100000000,
+                      gravitational_constant=1,
+                      density=999999,
                       time_step=.05,
-                      velocity_std=0):
+                      velocity_std=1,
+                      field_dimensions=(1200,900)):
         self.parent = parent
         self.population = population
         self.starting_population = population
         self.gravitational_constant = gravitational_constant
         self.density = density
         self.time_step = time_step
+        self.field_dimensions = field_dimensions
         self.coords = np.random.random((self.population,2))
+        self.coords[:,0] *= self.field_dimensions[0]
+        self.coords[:,1] *= self.field_dimensions[1]
         self.mass = np.random.random((self.population,1))
         self.total_mass = float(np.sum(self.mass))
         self.get_center_of_mass()
@@ -94,7 +98,7 @@ class Field:
         acceleration = acceleration.reshape(self.population,self.population,2)
         self.acceleration = np.mean(acceleration,0)*self.population/(self.population-1)
         
-        # update velocity
+        # update velocity 
         self.velocity = self.velocity + self.acceleration * self.time_step
         
         # update coords
@@ -231,12 +235,12 @@ class Field:
                 self.mass[indices] = 0
                 self.coords = self.coords[self.mass[:,0]!=0]
                 self.velocity = self.velocity[self.mass[:,0]!=0]
-                self.mass = self.mass[self.mass[:,0]!=0]
+                self.mass = self.mass[self.mass[:,0]!=0]               
                 
                 # add the new masses to the existing masses
                 self.mass = np.concatenate((self.mass, new_masses[:,2].reshape(new_masses[:,2].shape[0],1)),axis=0)
                 self.coords = np.concatenate((self.coords, new_masses[:,:2]),axis=0)
-                self.velocity = np.concatenate((self.velocity, new_masses[:,3:]),axis=0)
+                self.velocity = np.concatenate((self.velocity, new_masses[:,3:]),axis=0)  
                 
                 assert(self.mass.shape[0]==self.coords.shape[0]==self.velocity.shape[0])
                 tot_mass = float(np.sum(self.mass))
