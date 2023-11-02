@@ -12,7 +12,9 @@ class Field:
                       density=999999,
                       time_step=.05,
                       velocity_std=1,
-                      field_dimensions=(1200,900)):
+                      field_dimensions=(1200,900),
+                      use_colors=True,
+                      color_handling="blend"):
         self.parent = parent
         self.population = population
         self.starting_population = population
@@ -25,6 +27,11 @@ class Field:
         self.coords[:,1] *= self.field_dimensions[1]
         self.mass = np.random.random((self.population,1))
         self.total_mass = float(np.sum(self.mass))
+        if use_colors:
+            self.colors = np.random.randint(0,255,(self.population,3),np.int32)
+        else:
+            self.colors = np.zeros((self.population,3),np.int32)+255
+        self.color_handling = color_handling
         self.get_center_of_mass()
         self.velocity = np.random.normal(0,velocity_std,(self.population,2))
         self.acceleration = np.zeros((self.population,2))
@@ -161,6 +168,27 @@ class Field:
                 # sum of every pair of masses
                 mass_sums = mass1 + mass2
                 
+                # repeat all colors p times, 111222333...
+                colors1 = np.repeat(self.colors,self.population,0)
+                
+                # repeat all colors p times, 123123123...
+                colors2 = np.concatenate([[self.colors]] * self.population, axis=0)
+                # print("\nself.colors.shape: " + str(self.colors.shape))
+                # print("colors2.shape: " + str(colors2.shape))
+                # print("self.population: " + str(self.population))
+                colors2 = colors2.reshape(self.population**2,3)
+                
+                # find new colors based on setting
+                if self.color_handling == "blend":
+                    total_mass = mass_sums
+                    mass1_proportions = mass1/total_mass
+                    mass2_proportions = 1-mass1_proportions
+                    new_colors = colors1*mass1_proportions + colors2*mass2_proportions
+                elif self.color_handling == "biggest mass":
+                    color1_wins = np.squeeze(mass1 > mass2)
+                    new_colors = colors2
+                    new_colors[color1_wins] = colors1[color1_wins]
+                
                 # find center of mass between every pair of particles
                 # (m1*x1+m2*x2)/(x1+x2), (m1*y1+m2*y2)/(y1+y2)
                 x_components_1 = coords1[:,0].reshape(self.population**2,1)
@@ -196,9 +224,10 @@ class Field:
                 parents2 = parents2.reshape(self.population**2,1)
                 
                 # objects after collision
+                # start with a big array containing all the info
                 # parent 1, parent 2, locX, locY, mass, velocityX, velocityY
                 distances_mask = [distances < 0][0].reshape(self.population**2)
-                new_masses = np.zeros((self.population**2,7))
+                new_masses = np.zeros((self.population**2,10))
                 new_masses[:,0] = parents1.reshape(self.population**2)
                 new_masses[:,1] = parents2.reshape(self.population**2)
                 new_masses[:,2][distances_mask] = np.squeeze(x_component_centers_of_mass[distances_mask])
@@ -206,6 +235,7 @@ class Field:
                 new_masses[:,4][distances_mask] = np.squeeze(mass_sums[distances_mask])
                 new_masses[:,5][distances_mask] = np.squeeze(x_component_new_velocity[distances_mask])
                 new_masses[:,6][distances_mask] = np.squeeze(y_component_new_velocity[distances_mask])
+                new_masses[:,7:][distances_mask] = np.squeeze(new_colors[distances_mask,:])
                 new_masses_bak = copy.deepcopy(new_masses)
                 new_masses = new_masses[new_masses[:,4]!=0]
                 
@@ -233,16 +263,29 @@ class Field:
                 
                 # delete the masses that made the collision
                 self.mass[indices] = 0
+                # print("\nself.coords.shape: " + str(self.coords.shape))
                 self.coords = self.coords[self.mass[:,0]!=0]
+                # print("self.coords.shape: " + str(self.coords.shape))
                 self.velocity = self.velocity[self.mass[:,0]!=0]
-                self.mass = self.mass[self.mass[:,0]!=0]               
+                # print("self.colors.shape: " + str(self.colors.shape))
+                self.colors = self.colors[self.mass[:,0]!=0]
+                # print("self.colors.shape: " + str(self.colors.shape))
+                self.mass = self.mass[self.mass[:,0]!=0]   
                 
                 # add the new masses to the existing masses
                 self.mass = np.concatenate((self.mass, new_masses[:,2].reshape(new_masses[:,2].shape[0],1)),axis=0)
                 self.coords = np.concatenate((self.coords, new_masses[:,:2]),axis=0)
-                self.velocity = np.concatenate((self.velocity, new_masses[:,3:]),axis=0)  
+                self.velocity = np.concatenate((self.velocity, new_masses[:,3:5]),axis=0)  
+                self.colors = np.concatenate((self.colors, new_masses[:,5:]),axis=0).astype(np.int32)
                 
-                assert(self.mass.shape[0]==self.coords.shape[0]==self.velocity.shape[0])
+                try:
+                    assert(self.mass.shape[0]==self.coords.shape[0]==self.velocity.shape[0]==self.colors.shape[0])
+                except:
+                    print("self.mass.shape: " + str(self.mass.shape))
+                    print("self.coords.shape: " + str(self.coords.shape))
+                    print("self.velocity.shape: " + str(self.velocity.shape))
+                    print("self.colors.shape: " + str(self.colors.shape))
+                    1/0
                 tot_mass = float(np.sum(self.mass))
                 if abs(tot_mass-self.total_mass)>.01:
                     print("float(np.sum(self.mass)): " + str(float(np.sum(self.mass))))

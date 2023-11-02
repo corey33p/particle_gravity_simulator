@@ -154,7 +154,7 @@ class Display:
         def auto_zoom_func(): self.view_behavior.set(2)
         def remain_static_func(): self.view_behavior.set(3)
         self.view_behavior = IntVar()
-        self.view_behavior.set(0)
+        self.view_behavior.set(2)
         self.follow_center_of_mass = Radiobutton(self.settings_frame,
                                                  text="Follow Center Of Mass",
                                                  variable=self.view_behavior,
@@ -162,6 +162,7 @@ class Display:
                                                  command=follow_com_func,
                                                  font=self.main_font)
         self.follow_center_of_mass.grid(row=7,column=1,columnspan=2,sticky="e")
+        #
         self.follow_largest_mass = Radiobutton(self.settings_frame,
                                                text="Follow Largest Mass",
                                                variable=self.view_behavior,
@@ -169,6 +170,7 @@ class Display:
                                                command=follow_largest_func,
                                                font=self.main_font)
         self.follow_largest_mass.grid(row=8,column=1,columnspan=2,sticky="e")
+        #
         self.auto_zoom = Radiobutton(self.settings_frame,
                                      text="Auto Zoom",
                                      variable=self.view_behavior,
@@ -176,6 +178,7 @@ class Display:
                                      command=auto_zoom_func,
                                      font=self.main_font)
         self.auto_zoom.grid(row=9,column=1,columnspan=2,sticky="e")
+        #
         self.remain_static = Radiobutton(self.settings_frame,
                                               text="Remain Static",
                                               variable=self.view_behavior,
@@ -183,6 +186,7 @@ class Display:
                                               command=remain_static_func,
                                               font=self.main_font)
         self.remain_static.grid(row=10,column=1,columnspan=2,sticky="e")
+        #
         self.auto_recenter_check = IntVar()
         self.auto_recenter_check.set(1)
         self.auto_recenter_checkbutton = Checkbutton(self.settings_frame,
@@ -190,6 +194,35 @@ class Display:
                                                variable=self.auto_recenter_check,
                                                font=self.main_font)
         self.auto_recenter_checkbutton.grid(row=11,column=1,columnspan=2,sticky="e")
+        #
+        #
+        self.use_colors_check = IntVar()
+        self.use_colors_check.set(1)
+        self.use_colors_checkbutton = Checkbutton(self.settings_frame,
+                                               text="Use Colors",
+                                               variable=self.use_colors_check,
+                                               font=self.main_font)
+        self.use_colors_checkbutton.grid(row=12,column=1,columnspan=2,sticky="e")
+        # 
+        def weighted_blend_func(): self.color_behavior.set(0)
+        def winner_triumph_func(): self.color_behavior.set(1)
+        self.color_behavior = IntVar()
+        self.color_behavior.set(0)
+        self.colors_blend = Radiobutton(self.settings_frame,
+                                     text="Blend Colors on Collision",
+                                     variable=self.color_behavior,
+                                     value=0,
+                                     command=weighted_blend_func,
+                                     font=self.main_font)
+        self.colors_blend.grid(row=13,column=1,columnspan=2,sticky="e")
+        #
+        self.colors_by_mass = Radiobutton(self.settings_frame,
+                             text="Higher Mass Color on Collision",
+                             variable=self.color_behavior,
+                             value=1,
+                             command=winner_triumph_func,
+                             font=self.main_font)
+        self.colors_by_mass.grid(row=14,column=1,columnspan=2,sticky="e")
     def zoom_in(self):
         self.zoom_factor = self.zoom_factor*2
         x_center_of_mass,y_center_of_mass = self.parent.field.center_of_mass
@@ -213,7 +246,7 @@ class Display:
         if self.parent.field.population>1:
             if not self.parent.pause: self.parent.pause = True
             if self.parent.field is None:
-                count,g,d,t,vs,dim=self.get_settings()
+                count,g,d,t,vs,dim,c,cb=self.get_settings()
                 self.update_count(count)
                 self.parent.field = Field(self.parent,
                                           population=count,
@@ -221,7 +254,9 @@ class Display:
                                           density=d,
                                           time_step=t,
                                           velocity_std=vs,
-                                          field_dimensions=dim)
+                                          field_dimensions=dim,
+                                          use_colors=c,
+                                          color_handling=cb)
                 self.view_center = self.parent.field.center_of_mass
             self.parent.field.step()
             self.parent.field.collisions()
@@ -235,11 +270,17 @@ class Display:
         time_step = float(self.time_step.get())
         vel_sigma = float(self.velocity_sigma.get())
         dimensions= self.canvas_size
-        return pop,g,density,time_step,vel_sigma,dimensions
+        c = int(self.use_colors_check.get())
+        color_behavior = int(self.color_behavior.get())
+        if color_behavior == 0:
+            cb = "blend"
+        elif color_behavior == 1:
+            cb = "biggest mass"
+        return pop,g,density,time_step,vel_sigma,dimensions,c,cb
     def play_func(self):
         self.parent.pause = False
         self.parent.main_queue.queue.clear()
-        count,g,d,t,vs,dim=self.get_settings()
+        count,g,d,t,vs,dim,c,cb=self.get_settings()
         self.update_count(count)
         self.parent.field = Field(self.parent,
                                   population=count,
@@ -247,10 +288,12 @@ class Display:
                                   density=d,
                                   time_step=t,
                                   velocity_std=vs,
-                                  field_dimensions=dim)
+                                  field_dimensions=dim,
+                                  use_colors=c,
+                                  color_handling=cb)
         self.view_center = self.parent.field.center_of_mass
         self.parent.main_queue.put(self.play)
-        # self.play()
+        # self.play() # use for debugging Field class, which is in a separate thread
     def play(self):
         self.pause = False
         while self.parent.field.population>1:
@@ -261,7 +304,7 @@ class Display:
                 self.update_canvas()
                 restart = self.parent.field.population == 1 or self.parent.field.orbitting and self.auto_restart_check.get()
                 if self.parent.field.population == 1 or restart:
-                    count,g,d,t,vs,dim=self.get_settings()
+                    count,g,d,t,vs,dim,c,cb=self.get_settings()
                     self.update_count(count)
                     self.parent.field = Field(self.parent,
                                               population=count,
@@ -269,7 +312,9 @@ class Display:
                                               density=d,
                                               time_step=t,
                                               velocity_std=vs,
-                                              field_dimensions=dim)
+                                              field_dimensions=dim,
+                                              use_colors=c,
+                                              color_handling=cb)
                     self.view_center = self.parent.field.center_of_mass
     def coordinates_to_pixels(self,x,y):
         canvas_size_after_zoom_x = self.canvas_size[0]/self.zoom_factor
@@ -348,13 +393,15 @@ class Display:
             mass = self.parent.field.mass[i]
             radius = (3/4 * mass / (3.14159 * self.parent.field.density))**(1/3)
             radius = max(radius*self.zoom_factor,float(self.min_pixel_size.get()))
+            color = tuple(self.parent.field.colors[i])
+            rgb = "#%02x%02x%02x" % color
             
             x0=int(pixel_location[0]-radius)
             y0=int(pixel_location[1]-radius)
             x1=int(pixel_location[0]+radius)
             y1=int(pixel_location[1]+radius)
             oval_coordinates = (x0,y0,x1,y1)
-            self.the_canvas.create_oval(x0,y0,x1,y1,fill='white',outline='white',tags=self.current_step)
+            self.the_canvas.create_oval(x0,y0,x1,y1,fill=rgb,outline=rgb,tags=self.current_step)
         if self.current_step == "odd": self.current_step = "even"
         else: self.current_step = "odd"
         self.the_canvas.delete(self.current_step)
